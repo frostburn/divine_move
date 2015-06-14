@@ -1,0 +1,20 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Tiny divine move</title>
+    </head>
+    <body>
+        <div id="board"></div>
+        <p id="status"></p>
+        <h3 id="goal"></h3>
+        <button id="pass">pass</button>
+        <script type="text/javascript" src="{% static 'js/jquery-2.1.4.min.js' %}"></script>
+        <script type="text/javascript" src="{% static 'js/svg.min.js' %}"></script>
+        <script type="text/javascript">
+            window.json_url = "{% url 'go_json' endgame_type endgame %}";
+        </script>
+        <script type="text/javascript" src="{% static 'js/go.js' %}"></script>
+    </body>
+</html>
