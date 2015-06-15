@@ -14,7 +14,8 @@ class IndexView(TemplateView):
 
 empty_map = {
     "4x3": 6377292,
-    #"5x3": 215233605,
+    "5x3": 215233605,
+    "4x4": 688747536,
 }
 
 class GoEmptyView(View):

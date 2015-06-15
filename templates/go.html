@@ -9,10 +9,15 @@
         <div id="board"></div>
         <p id="status"></p>
         <h3 id="goal"></h3>
-        <button id="pass">pass</button>
+        <a id="edit_link" href="#"></a><br>
+        <a id="normal_link" href="#"></a><br>
+        <a id="stalling_link" href="#"></a><br>
+        <button id="pass">pass</button><button id="undo">undo</button><br><br>
+        <a href="{% url 'go_empty' endgame_type %}">reset</a>
         <script type="text/javascript" src="{% static 'js/jquery-2.1.4.min.js' %}"></script>
         <script type="text/javascript" src="{% static 'js/svg.min.js' %}"></script>
         <script type="text/javascript">
+            window.link_url = "{% url 'go' endgame_type endgame %}";
             window.json_url = "{% url 'go_json' endgame_type endgame %}";
         </script>
         <script type="text/javascript" src="{% static 'js/go.js' %}"></script>
