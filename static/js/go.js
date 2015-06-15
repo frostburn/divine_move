@@ -13,7 +13,13 @@
 
     $("#undo").click(function(){
         if (undos.length){
-            move_num = Math.floor(0.5 * (move_num - 1)) * 2 - 1;
+            if (mode == "edit"){
+                move_num -= 2;
+                $('#goal').empty();
+            }
+            else {
+                move_num = Math.floor(0.5 * (move_num - 1)) * 2 - 1;
+            }
             next_endgame(undos.pop());
         }
     });
@@ -28,6 +34,8 @@
         "G": 6,
         "H": 7
     };
+
+    var board_color = "#db7";
 
     var scale = 50;
     function draw_coords(coord){
@@ -45,9 +53,12 @@
     }
 
     function ko_square(draw, x, y){
-        var square = draw.rect(0.7 * scale, 0.7 * scale).center(x + 0.5 * scale, y + 0.5 * scale).fill("none");
-        square.stroke({width: 1, color: "#222"});
-        return square;
+        var shape = draw.group();
+        var bg = shape.rect(1.09 * scale, 1.09 * scale).center(x + 0.5 * scale, y + 0.5 * scale).fill(board_color);
+        bg.attr({"fill-opacity": 0.7});
+        var square = shape.rect(0.6 * scale, 0.6 * scale).center(x + 0.5 * scale, y + 0.5 * scale).fill("none");
+        square.stroke({width: 2, color: "#333"});
+        return shape;
     }
 
     function render_playing_area(draw, data)
@@ -58,14 +69,14 @@
             var c = draw_coords(coord);
             var x = c[0];
             var y = c[1];
-            draw.rect(scale, scale).move(x, y).fill("#db7");
+            draw.rect(1.1 * scale, 1.1 * scale).center(x + 0.5 * scale, y + 0.5 * scale).fill(board_color);
             east[[x + scale, y]] = true;
             south[[x, y + scale]] = true;
         });
         $(data.playing_area).each(function(_, coord){
             var c = draw_coords(coord);
-            var x = c[0];
-            var y = c[1];
+            var x = c[0] - 0.5;
+            var y = c[1] - 0.5;
             if (east[c]){
                 draw.line(x - 0.5 * scale, y + 0.5 * scale, x + 0.5 * scale, y + 0.5 * scale).stroke({
                     width: 1,
@@ -83,6 +94,7 @@
 
     var board_objects = {};
     var missing_objects = {};
+    var ko = null;
     var hovers = [];
 
     function add_object(draw, coord, shape){
@@ -114,6 +126,10 @@
             player = white_stone;
             opponent = black_stone;
         }
+        if (ko !== null){
+            ko.remove();
+            ko = null;
+        }
         missing_objects = {};
         $.each(board_objects, function(coord, object){
             missing_objects[coord] = object;
@@ -125,7 +141,8 @@
             add_object(draw, coord, opponent);
         });
         $(data.ko).each(function(_, coord){
-            add_object(draw, coord, ko_square);
+            var c = draw_coords(coord);
+            ko = ko_square(draw, c[0], c[1]);
         });
         $.each(missing_objects, function(coord, object){
             delete board_objects[coord];
@@ -173,6 +190,8 @@
 
     function render_board(data){
         var draw = SVG("board").size(300, 300);
+        draw = draw.group();
+        draw.move(0.1 * scale, 0.1 * scale);
         background_draw = draw.nested();
         foreground_draw = draw.nested();
         render_playing_area(background_draw, data);
