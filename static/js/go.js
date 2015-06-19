@@ -350,10 +350,10 @@
             url: url,
             success: function(data){
                 data = JSON.parse(data);
+                //console.log(data);
                 if (data.status != "OK"){
                     return;
                 }
-                //console.log(data);
                 current_data = data;
                 render_stones(foreground_draw, data);
                 if (play_book_move(data)){
@@ -422,13 +422,13 @@
             url: window.json_url,
             success: function(data){
                 data = JSON.parse(data);
+                //console.log(data);
                 if (data.status != "OK"){
                     return;
                 }
                 if (data.passes == 1){
                     $("#status").text("The opponent passed.");
                 }
-                //console.log(data);
                 render_board(data);
                 set_goal(data);
                 current_data = data;
