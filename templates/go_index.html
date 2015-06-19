@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>Perfectly solved go problems with move limits</h2>
+    <h3>Rules</h3>
+    <ol>
+        <li>Liberty scoring.</li>
+        <li>Captures are not counted.</li>
+        <li>Game ends after two passes.</li>
+        <li>Clearing a ko with a pass doesn't count.</li>
+    </ol>
+    <ul>
+    <h3>Available boards</h3>
+    {% for endgame_type in endgame_types %}
+        <li>
+            <a href="{% url 'go_empty' endgame_type %}">{{ endgame_type }}</a>
+        </li>
+    {% endfor %}
+    </ul>
+{% endblock %}

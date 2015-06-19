@@ -1,69 +1,58 @@
+{% extends "base.html" %}
 {% load staticfiles %}
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Tiny divine move</title>
-        <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}">
-        <link rel="stylesheet" type="text/css" href="{% static 'css/site.css' %}">
-        <link rel="stylesheet" type="text/css" href="{% static 'css/go.css' %}">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <div id="board" class="noselect"></div>
-                    <div class="text-center">
-                    {% if mode == "edit" %}
-                        <a id="normal_link" href="#"></a><br>
-                        <a id="stalling_link" href="#"></a>
-                    {% else %}
-                        <h3 id="goal"></h3>
-                    {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    {% if mode == "edit" %}
-                        <div class="row btn-group game-buttons" data-toggle="buttons">
-                            <label class="btn btn-default active">
-                                <input type="radio" name="edit_type" id="edit_alternate" value="alternate" autocomplete="off" checked> Alternate
-                            </label>
-                            <label class="btn btn-default">
-                                <input type="radio" name="edit_type" id="edit_black" value="black" autocomplete="off"> Black
-                            </label>
-                            <label class="btn btn-default">
-                                <input type="radio" name="edit_type" id="edit_white" value="white" autocomplete="off"> White
-                            </label>
-                            <label class="btn btn-default">
-                                <input type="radio" name="edit_type" id="edit_delete" value="delete" autocomplete="off"> Delete
-                            </label>
-                        </div>
-                    {% endif %}
-                    <div class="row game-buttons">
-                        <button id="pass" class="btn btn-default">pass</button>
-                        <button id="undo" class="btn btn-default">undo</button>
-                    </div>
-                    <div class="row game-buttons">
-                        <a href="{% url 'go_empty' endgame_type %}?mode={{ mode }}" class="btn btn-info">clear</a>
-                        {% if mode != "edit" %}
-                            <a id="edit_link" href="#" class="btn btn-primary">edit</a>
-                        {% endif %}
-                    </div>
-                    <div class="row game-buttons">
-                        <p id="status"></p>
-                    </div>
-                </div>
+{% block extra_css %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/go.css' %}">
+{% endblock %}
+{% block content %}
+    <div class="row">
+        <div class="col-md-6">
+            <div id="board" class="noselect"></div>
+            <div class="text-center">
+            {% if mode == "edit" %}
+                <a id="normal_link" href="#"></a><br>
+                <a id="stalling_link" href="#"></a>
+            {% else %}
+                <h3 id="goal"></h3>
+            {% endif %}
             </div>
         </div>
-        <script type="text/javascript" src="{% static 'js/jquery-2.1.4.min.js' %}"></script>
-        <script type="text/javascript" src="{% static 'js/bootstrap.min.js' %}"></script>
-        <script type="text/javascript" src="{% static 'js/svg.min.js' %}"></script>
-        <script type="text/javascript" src="{% static 'js/site.js' %}"></script>
-        <script type="text/javascript">
-            window.link_url = "{% url 'go' endgame_type endgame %}";
-            window.json_url = "{% url 'go_json' endgame_type endgame %}";
-        </script>
-        <script type="text/javascript" src="{% static 'js/go.js' %}"></script>
-    </body>
-</html>
+        <div class="col-md-6">
+            {% if mode == "edit" %}
+                <div class="row btn-group game-buttons" data-toggle="buttons">
+                    <label class="btn btn-default active">
+                        <input type="radio" name="edit_type" id="edit_alternate" value="alternate" autocomplete="off" checked> Alternate
+                    </label>
+                    <label class="btn btn-default">
+                        <input type="radio" name="edit_type" id="edit_black" value="black" autocomplete="off"> Black
+                    </label>
+                    <label class="btn btn-default">
+                        <input type="radio" name="edit_type" id="edit_white" value="white" autocomplete="off"> White
+                    </label>
+                    <label class="btn btn-default">
+                        <input type="radio" name="edit_type" id="edit_delete" value="delete" autocomplete="off"> Delete
+                    </label>
+                </div>
+            {% endif %}
+            <div class="row game-buttons">
+                <button id="pass" class="btn btn-default">pass</button>
+                <button id="undo" class="btn btn-default">undo</button>
+            </div>
+            <div class="row game-buttons">
+                <a href="{% url 'go_empty' endgame_type %}?mode={{ mode }}" class="btn btn-info">clear</a>
+                {% if mode != "edit" %}
+                    <a id="edit_link" href="#" class="btn btn-primary">edit</a>
+                {% endif %}
+            </div>
+            <div class="row game-buttons">
+                <p id="status"></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block extra_js %}
+    <script type="text/javascript">
+        window.link_url = "{% url 'go' endgame_type endgame %}";
+        window.json_url = "{% url 'go_json' endgame_type endgame %}";
+    </script>
+    <script type="text/javascript" src="{% static 'js/go.js' %}"></script>
+{% endblock %}

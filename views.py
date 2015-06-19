@@ -9,8 +9,10 @@ from django.views.generic import View, RedirectView, TemplateView
 
 from utils import str_base
 
+
 class IndexView(TemplateView):
     template_name = "index.html"
+
 
 empty_map = {
     "2x1" : 18,
@@ -36,6 +38,16 @@ empty_map = {
     "notch" : 215233605,
 }
 
+
+class GoIndexView(TemplateView):
+    template_name = "go_index.html"
+
+    def get_context_data(self, *args, **kwargs):
+        context = super(GoIndexView, self).get_context_data(*args, **kwargs)
+        context["endgame_types"] = sorted(empty_map.keys())
+        return context
+
+
 class GoEmptyView(RedirectView):
     permanent = False
     pattern_name = "go"
@@ -50,6 +62,7 @@ class GoEmptyView(RedirectView):
 
         return super(GoEmptyView, self).get_redirect_url(*args, **kwargs)
 
+
 class GoView(TemplateView):
     template_name = "go.html"
 
@@ -60,6 +73,7 @@ class GoView(TemplateView):
         context["endgame"] = int(context["endgame"], 36)
         context["mode"] = self.request.GET.get("mode", "normal")
         return context
+
 
 class GoJSONView(View):
     def dispatch(self, *args, **kwargs):
