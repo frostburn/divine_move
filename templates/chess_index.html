@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="row">
+        <h2>Perfectly solved chess endgames</h2>
+        <h3>Rules</h3>
+        <ol>
+            <li>No fifty-move rule or draw by threefold repetition. Repeating positions is allowed.</li>
+            <li>Checkmate is the best result.</li>
+            <li>Stalemating the opponent is the second best result.</li>
+            <li>The game is drawn only when reduced to king vs. king.</li>
+            <li>Not being able force a result is even worse than being stalemated or checkmated by the opponent.</li>
+            <li>There is also a stalling mode available where preventing any result is even better than checkmating the opponent.</li>
+        </ol>
+        <h3>Edit mode</h3>
+        <p>You can explore all the available endgames by composing them in <a href="{% url 'chess_edit' %}">edit mode</a>.
+        <h3>Available endgames</h3>
+        <p>The entire table is from the perspective of White winning. The Pieces column shows the pieces on the board: first White's pieces, then an underscore character _, then Black's pieces. The standard notation for pieces is used: k for King, q for Queen, r for Rook, b for Bishop, n for Knight and p for Pawn. All the positions are White to play.</p>
+        <p>Bellow the numbers represent the longest forceable result of that kind and link to a playable position.</p>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Pieces</th>
+                    <th>No result</th>
+                    <th>Selfmate</th>
+                    <th>Self-stalemate</th>
+                    <th>Draw</th>
+                    <th>Stalemate</th>
+                    <th>Checkmate</th>
+                </tr>
+            </thead>
+            {% for name, endgame in low_endgames %}
+                <tr>
+                    <td>{{ name }}</td>
+                    {% for result in endgame %}
+                        <td>
+                            {% if result == None %}
+                                -
+                            {% else %}
+                                <a href="{% url 'chess' result.1 %}">{{ result.0 }}</a>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+        <p>The second table lists the longest delay possible against an opponent trying to force a result. Remember that maintaining a "no result" status is now the best option.</p>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Pieces</th>
+                    <th>No result</th>
+                    <th>Selfmate</th>
+                    <th>Self-stalemate</th>
+                    <th>Draw</th>
+                    <th>Stalemate</th>
+                    <th>Checkmate</th>
+                </tr>
+            </thead>
+            {% for name, endgame in high_endgames %}
+                <tr>
+                    <td>{{ name }}</td>
+                    {% for result in endgame %}
+                        <td>
+                            {% if result == None %}
+                                -
+                            {% else %}
+                                <a href="{% url "chess" result.1 %}?mode=stalling">{{ result.0 }}</a>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+{% endblock %}

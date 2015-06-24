@@ -8,6 +8,7 @@ from django.shortcuts import redirect
 from django.views.generic import View, RedirectView, TemplateView
 
 from utils import str_base
+from chess_data import low_endgames, high_endgames
 
 
 class IndexView(TemplateView):
@@ -78,4 +79,46 @@ class GoView(TemplateView):
 class GoJSONView(View):
     def dispatch(self, *args, **kwargs):
         result = subprocess.check_output([settings.TABLE_QUERY_PATH, "go", kwargs["endgame_type"], kwargs["endgame"]])
+        return HttpResponse(result)
+
+
+class ChessIndexView(TemplateView):
+    template_name = "chess_index.html"
+
+    def get_context_data(self, *args, **kwargs):
+        context = super(ChessIndexView, self).get_context_data(*args, **kwargs)
+        context["low_endgames"] = low_endgames
+        context["high_endgames"] = high_endgames
+        return context
+
+
+class ChessEditView(TemplateView):
+    template_name = "chess_edit.html"
+
+
+class ChessView(TemplateView):
+    template_name = "chess.html"
+
+    def get_context_data(self, *args, **kwargs):
+        context = super(ChessView, self).get_context_data(*args, **kwargs)
+        fen_parts = context["fen"].split("_")
+        if len(fen_parts) < 2:
+            fen_parts += "w"
+        if len(fen_parts) < 3:
+            fen_parts += "-"
+        if len(fen_parts) < 4:
+            fen_parts += "-"
+        if len(fen_parts) < 5:
+            fen_parts += "0"
+        if len(fen_parts) < 6:
+            fen_parts += "1"
+        context["fen"] = " ".join(fen_parts)
+        context["mode"] = self.request.GET.get("mode", "normal")
+        return context
+
+
+class ChessJSONView(View):
+    def dispatch(self, *args, **kwargs):
+        fen = kwargs["fen"].replace("_", " ")
+        result = subprocess.check_output([settings.TABLE_QUERY_PATH, "chess", fen])
         return HttpResponse(result)

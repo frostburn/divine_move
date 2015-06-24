@@ -398,6 +398,7 @@
             }
         }
         else {
+            // TODO: to lose by
             var normal_text = player + " to win by " + data.low + " in " + data.low_distance + " moves.";
             var stalling_text = player + " to delay winning by " + data.high + " for " + data.high_distance + " moves.";
             if (mode == "normal"){

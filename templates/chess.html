@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block extra_css %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/chessboard-0.3.0.min.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/chess.css' %}">
+{% endblock %}
+{% block content %}
+    <div class="row">
+        <div class="col-md-6">
+            <div id="board" style="width: 400px"></div>
+            <p id="status"></p>
+            <h3 id="goal"></h3>
+        </div>
+        <div class="col-md-6">
+            <div class="row game-buttons">
+                <button id="undo" class="btn btn-default">undo</button>
+            </div>
+            <div class="row">
+            <a id="solution_link" href="#">Solution</a>
+            <div id="solution" class="hidden">
+                Optimal moves: <span id="strong_moves"></span><br>
+                Suboptimal moves that retain the advantage: <span id="weak_moves"></span><br>
+                Mistakes: <span id="mistakes"></span>
+            </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block footer_content %}
+    <footer class="footer">
+        <div class="container">
+            <p class="text-muted">Powered by <a href="http://chessboardjs.com/">chessboard.js</a> and <a href="https://github.com/jhlywa/chess.js">chess.js</a>.</p>
+        </div>
+    </footer>
+{% endblock %}
+{% block extra_js %}
+    <script type="text/javascript" src="{% static 'js/chess.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/chessboard-0.3.0.min.js' %}"></script>
+    <script type="text/javascript">
+        window.json_url = "{% url 'chess_json' '_' %}";
+        window.chess_cfg = {
+            pieceTheme: "{% static 'img/chesspieces/wikipedia/_.png' %}".replace("_", "{piece}"),
+            position: "{{ fen }}",
+            draggable: true
+        }
+    </script>
+    <script type="text/javascript" src="{% static 'js/chess_query.js' %}"></script>
+{% endblock %}
