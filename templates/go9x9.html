@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block title %}9x9 Move Explorer Beta{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/go.css' %}">
+{% endblock %}
+{% block content %}
+    <div class="row">
+        <div class="col-md-6">
+            <div class="row">
+                <h2 class="text-center">9x9 Board Explorer Beta</h2>
+                <div id="board" class="noselect"></div>
+            </div>
+            <div class="row game-buttons center-block text-center">
+                <a href="{% url 'go9x9_empty' %}" class="btn btn-default">
+                    <span class="glyphicon glyphicon-step-backward" aria-hidden="true"></span>
+                </a>
+                <button id="undo" class="btn btn-default">
+                    <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
+                </button>
+                <button id="pass" class="btn btn-default">pass</button>
+                <button id="next" class="btn btn-default">
+                    <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                </button>
+                <button id="end" class="btn btn-default">
+                    <span class="glyphicon glyphicon-step-forward" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="row game-buttons">
+                <h4>Vote on the last move</h4>
+                <button disabled id="ideal" name="ideal" class="vote btn btn-success btn-great-success" style="width:19%">ideal</button>
+                <button disabled id="good" name="good" class="vote btn btn-success" style="width:19%">good</button>
+                <button disabled id="trick" name="trick" class="vote btn btn-warning" style="width:19%">trick</button>
+                <button disabled id="bad" name="bad" class="vote btn btn-danger" style="width:19%">bad</button>
+                <button disabled id="question" name="question" class="vote btn btn-primary" style="width:19%">question</button>
+            </div>
+            <div id="tree_row" class="row">
+                <p>Tree score: <span id="score"></span></p>
+            </div>
+            <div id="statistics_row" class="row">
+                <h4>Statistics for the next move</h4>
+                <table cellspacing="1" cellpadding="0" border="0" class="table table-bordered">
+                    <tbody id="statistics"></tbody>
+                </table>
+            </div>
+            <div id="game_info_row" class="row hidden">
+                <h4>Game Information</h4>
+                <table cellspacing="0" cellpadding="0" border="0" class="table table-striped">
+                    <tbody id="game_info"></tbody>
+                </table>
+            </div>
+            <div class="row game-buttons">
+                <p id="status"></p>
+                <button id="resolve" class="btn btn-default hidden">resolve</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block extra_js %}
+    <script type="text/javascript">
+        window.link_url = "{% url 'go9x9' code %}";
+        window.json_url = "{% url 'go9x9_json' code %}";
+        window.end_json_url = "{% url 'go9x9_end_json' code %}";
+    </script>
+    <script type="text/javascript" src="{% static 'js/go9x9.js' %}"></script>
+{% endblock %}

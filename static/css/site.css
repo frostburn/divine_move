@@ -12,6 +12,12 @@
     user-select: none;
 }
 
+.btn-great-success {
+    color: #fff;
+    background-color: #1cb81c;
+    border-color: #10ae10;
+}
+
 /* Sticky footer styles
 -------------------------------------------------- */
 html {
