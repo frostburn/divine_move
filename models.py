@@ -2,6 +2,7 @@ from __future__ import division
 from datetime import datetime
 from decimal import Decimal
 
+from django.contrib.auth.models import User
 from django.db import models
 
 from go_board import Board
@@ -125,6 +126,7 @@ class GameInfo(models.Model):
     """
     A game that was played.
     """
+    # SGF fields
     black_player = models.CharField(max_length=64)
     black_rank = models.CharField(max_length=8)
     white_player = models.CharField(max_length=64)
@@ -139,7 +141,13 @@ class GameInfo(models.Model):
     rules = models.CharField(max_length=32)
     time = models.IntegerField(null=True)
     overtime = models.CharField(max_length=32)
+
+    # Other fields
     hash = models.CharField(max_length=32)
+    quality = models.SmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["quality"]
 
     def to_json(self):
         data = {
@@ -172,35 +180,34 @@ class Transition(models.Model):
     source = models.ForeignKey('Position', related_name='transitions')
     target = models.ForeignKey('Position', related_name='parent_transitions')
     times_played = models.IntegerField(default=0)
-    ideal_votes = models.IntegerField(default=0)
-    good_votes = models.IntegerField(default=0)
-    trick_votes = models.IntegerField(default=0)
-    bad_votes = models.IntegerField(default=0)
-    question_votes = models.IntegerField(default=0)
 
-    def to_json(self, total_continuations):
+    def to_json(self, total_continuations=None):
+        if total_continuations is None:
+            total_continuations = 1
         likelyhood = self.times_played / total_continuations
         result = {
             "times_played": self.times_played,
             "likelyhood": likelyhood,
-            "ideal": self.ideal_votes,
-            "good": self.good_votes,
-            "trick": self.trick_votes,
-            "bad": self.bad_votes,
-            "question": self.question_votes,
+            "ideal": 0,
+            "good": 0,
+            "trick": 0,
+            "bad": 0,
+            "question": 0,
         }
+        for vote in self.votes.all():
+            result[vote.type] += 1
         color = "#" + 3 * ("%02d" % (99 - 40 * likelyhood))
-        labels = self.ideal_votes + self.good_votes + self.trick_votes + self.bad_votes
+        labels = result["ideal"] + result["good"] + result["trick"] + result["bad"]
         if not labels:
-            if self.question_votes:
+            if result["question"]:
                 color = "#0bf"
         else:
-            m = max(self.ideal_votes, self.good_votes, self.trick_votes, self.bad_votes)
-            if self.ideal_votes == m:
+            m = max(result["ideal"], result["good"], result["trick"], result["bad"])
+            if result["ideal"] == m:
                 color = "#070"
-            elif self.good_votes == m:
+            elif result["good"] == m:
                 color = "#560"
-            elif self.bad_votes == m:
+            elif result["bad"] == m:
                 color = "#a33"
             else:
                 color = "#de0"
@@ -225,3 +232,49 @@ def get_or_create_position(code):
         return state.first().position, False
     else:
         return create_position(code), True
+
+
+class BaseUserActivity(models.Model):
+    user = models.ForeignKey(User, null=True)
+    ip_address = models.GenericIPAddressField(unpack_ipv4=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class TransitionVote(BaseUserActivity):
+    IDEAL = 'ideal'
+    GOOD = 'good'
+    TRICK = 'trick'
+    BAD = 'bad'
+    QUESTION = 'question'
+    TYPE_CHOICES = (
+        (IDEAL, 'Ideal'),
+        (GOOD, 'Good'),
+        (TRICK, 'Trick'),
+        (BAD, 'Bad'),
+        (QUESTION, 'Question'),
+    )
+    type = models.CharField(max_length=8, choices=TYPE_CHOICES, default=GOOD)
+    transition = models.ForeignKey('Transition', related_name='votes')
+
+
+class BaseMessage(BaseUserActivity):
+    upvotes = models.IntegerField(default=0)
+    downvotes = models.IntegerField(default=0)
+    flags = models.IntegerField(default=0)
+    anti_flags = models.IntegerField(default=0)
+    content = models.TextField()
+
+    class Meta:
+        abstract = True
+
+
+class PositionMessage(BaseMessage):
+    position = models.ForeignKey('Position', related_name='messages')
+
+
+class TransitionMessage(BaseMessage):
+    transition = models.ForeignKey('Transition', related_name='messages')

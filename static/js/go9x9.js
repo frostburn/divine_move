@@ -196,6 +196,35 @@
         }
     }
 
+    var game_num = 0;
+
+    function set_game_info(data){
+        $game_info = $("#game_info");
+        $previous_game = $("#previous_game");
+        $next_game = $("#next_game");
+        $game_info.empty();
+        $previous_game.prop("disabled", game_num == 0);
+
+        if (data){
+            $(game_info_structure).each(function(_, kn){
+                var key = kn[0];
+                var name = kn[1];
+                var value = data[key];
+                if (String(value).length){
+                    var $tr = $("<tr>");
+                    var $td = $("<td>");
+                    $td.html(name + ": " + value);
+                    $tr.append($td);
+                    $game_info.append($tr);
+                }
+            });
+            $next_game.prop("disabled", !data.next);
+        }
+        else {
+            $next_game.prop("disabled", true);
+        }
+    }
+
     function render_stones(draw, hint_draw, data){
         var player, opponent, hover_players, hover_opponents;
         if (black_to_play()){
@@ -241,30 +270,8 @@
         var $statistics = $("#statistics");
         $statistics.empty();
         var $stats_row;
-        $statistics_row = $("#statistics_row");
-        $game_info_row = $("#game_info_row");
-        $game_info = $("#game_info");
-        $game_info.empty();
-        if (data.info){
-            $statistics_row.addClass("hidden");
-            $game_info_row.removeClass("hidden");
-            $(game_info_structure).each(function(_, kn){
-                var key = kn[0];
-                var name = kn[1];
-                var value = data.info[key];
-                if (String(value).length){
-                    var $tr = $("<tr>");
-                    var $td = $("<td>");
-                    $td.html(name + ": " + value);
-                    $tr.append($td);
-                    $game_info.append($tr);
-                }
-            });
-        }
-        else {
-            $statistics_row.removeClass("hidden");
-            $game_info_row.addClass("hidden");
-        }
+        game_num = 0;
+        set_game_info(data.info);
         var $next = $("#next");
         var next_found = false;
         $next.off("click");
@@ -294,7 +301,7 @@
                 undos.push(data.endgame);
                 $status.empty();
                 next_endgame(move_data);
-                $("button.vote").prop("disabled", false);
+                $(".vote").attr("disabled", false);
             }
             if (!next_found && (move_data.color || move_data.label)){
                 $next.click(make_move);
@@ -302,7 +309,7 @@
             }
             if (move_data.label){
                 if (label_index % 2 == 0){
-                    $stats_row = $('<tr>');
+                    $stats_row = $("<tr>");
                 }
                 var $td = $('<td width="5%">');
                 $td.html(move_data.label)
@@ -374,9 +381,6 @@
                 hints.push(hint);
             }
         });
-        if (!$statistics.html()){
-            $statistics_row.addClass("hidden");
-        }
     }
 
     var background_draw;
@@ -405,8 +409,8 @@
         var parts = window.json_url.split("/");
         parts[parts.length - 2] = move_data.endgame;
         var url = parts.join("/");
-        var $vote_buttons = $("button.vote")
-        $vote_buttons.prop("disabled", true);
+        var $vote_buttons = $(".vote")
+        $vote_buttons.attr("disabled", true);
         var $resolve = $("#resolve");
         $resolve.addClass("hidden");
         //console.log(move_data);
@@ -432,18 +436,26 @@
                 else {
                     $status.empty();
                 }
-                $vote_buttons.each(function(){
-                    var $this = $(this);
-                    var name = $this.attr("name");
-                    var num = move_data[name];
-                    $this.data("num", num);
-                    if (num){
-                        $this.text(name + " (" + num + ")");
-                    }
-                    else {
-                        $this.text(name);
-                    }
-                });
+                set_vote_labels(move_data);
+            }
+        });
+    }
+
+    function set_vote_labels(data){
+        $(".votes input").each(function(){
+            var $this = $(this);
+            var name = $this.val();
+            var num = data[name];
+            if (num){
+                num = " (" + num + ")";
+            }
+            else {
+                num = "";
+            }
+            $this.siblings('span').text(num);
+            var $label = $this.parent();
+            if (data.user_vote == name){
+                $label.addClass('active');
             }
         });
     }
@@ -456,18 +468,25 @@
                 next_endgame({"endgame": undos.pop()});
             }
         });
-        $("button.vote").click(function(){
-            $("button.vote").prop("disabled", true);
+        $(".vote").click(function(){
             var $this = $(this);
-            var name = $this.attr("name");
-            var num = $this.data("num");
-            $this.text(name + " (" + (num + 1) + ")");
+            // Labels don't seem to respect the disabled property.
+            if ($this.attr("disabled")){
+                return;
+            }
+            var $input = $this.children('input');
+            var name = $input.val();
             var data = {
                 "type": name,
                 "source": undos[undos.length - 1],
                 "target": current_data.endgame
             };
-            $.post(window.json_url, JSON.stringify(data));
+            $.post(
+                window.json_url,
+                JSON.stringify(data),
+                set_vote_labels,
+                "json"
+            );
         });
         $("#resolve").click(function(){
             if (!confirm("Are you sure you want to resolve this position?\nAll stones will be considered alive.")){
@@ -509,6 +528,27 @@
                     }
                 }
             });
+        });
+        function change_game(){
+            var parts = window.game_json_url.split("/");
+            parts[parts.length - 3] = current_data.endgame;
+            parts[parts.length - 2] = game_num;
+            var url = parts.join("/");
+            $.ajax({
+                url: url,
+                dataType: "json",
+                success: function(data){
+                    set_game_info(data);
+                }
+            });
+        };
+        $("#next_game").click(function(){
+            game_num += 1;
+            change_game();
+        });
+        $("#previous_game").click(function(){
+            game_num -= 1;
+            change_game();
         });
         $.ajax({
             url: window.json_url,

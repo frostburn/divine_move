@@ -30,26 +30,66 @@
         <div class="col-md-6">
             <div class="row game-buttons">
                 <h4>Vote on the last move</h4>
-                <button disabled id="ideal" name="ideal" class="vote btn btn-success btn-great-success" style="width:19%">ideal</button>
-                <button disabled id="good" name="good" class="vote btn btn-success" style="width:19%">good</button>
-                <button disabled id="trick" name="trick" class="vote btn btn-warning" style="width:19%">trick</button>
-                <button disabled id="bad" name="bad" class="vote btn btn-danger" style="width:19%">bad</button>
-                <button disabled id="question" name="question" class="vote btn btn-primary" style="width:19%">question</button>
+                <div class="btn-group btn-group-justified votes" data-toggle="buttons">
+                    <label class="btn btn-success btn-great-success vote" disabled>
+                        <input type="radio" id="ideal" name="vote" value="ideal" autocomplete="off"></input>ideal<span></span>
+                    </label>
+                    <label class="btn btn-success vote" disabled>
+                        <input type="radio" id="good" name="vote" value="good" autocomplete="off"></input>good<span></span>
+                    </label>
+                    <label class="btn btn-warning vote" disabled>
+                        <input type="radio" id="trick" name="vote" value="trick" autocomplete="off"></input>trick<span></span>
+                    </label>
+                    <label class="btn btn-danger vote" disabled>
+                        <input type="radio" id="bad" name="vote" value="bad" autocomplete="off"></input>bad<span></span>
+                    </label>
+                    <label class="btn btn-primary vote" disabled>
+                        <input type="radio" id="question" name="vote" value="question" autocomplete="off"></input>question<span></span>
+                    </label>
+                </div>
             </div>
             <div id="tree_row" class="row">
                 <p>Tree score: <span id="score"></span></p>
             </div>
-            <div id="statistics_row" class="row">
-                <h4>Statistics for the next move</h4>
-                <table cellspacing="1" cellpadding="0" border="0" class="table table-bordered">
-                    <tbody id="statistics"></tbody>
-                </table>
-            </div>
-            <div id="game_info_row" class="row hidden">
-                <h4>Game Information</h4>
-                <table cellspacing="0" cellpadding="0" border="0" class="table table-striped">
-                    <tbody id="game_info"></tbody>
-                </table>
+            <div class="row">
+              <!-- Nav tabs -->
+              <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active"><a href="#stats_tab" aria-controls="stats_tab" role="tab" data-toggle="tab">Statistics</a></li>
+                <li role="presentation"><a href="#game_tab" aria-controls="game_tab" role="tab" data-toggle="tab">Game Information</a></li>
+                <li role="presentation"><a href="#position_tab" aria-controls="position_tab" role="tab" data-toggle="tab">Position Comments</a></li>
+                <li role="presentation" class="disabled"><a href="#transition_tab" aria-controls="transition_tab" role="tab" data-toggle="tab">Move Comments</a></li>
+              </ul>
+
+              <!-- Tab panes -->
+              <div class="tab-content">
+                <div role="tabpanel" class="tab-pane active" id="stats_tab">
+                    <h4>Statistics for the next move</h4>
+                    <table cellspacing="1" cellpadding="0" border="0" class="table table-bordered">
+                        <tbody id="statistics"></tbody>
+
+                    </table>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="game_tab">
+                    <h4>Game information</h4>
+                    <button id="previous_game" class="btn btn-primary" disabled>
+                        <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
+                    </button>
+                    <button id="next_game" class="btn btn-primary" disabled>
+                        <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                    </button>
+                    <table cellspacing="0" cellpadding="0" border="0" class="table table-striped">
+                        <tbody id="game_info"></tbody>
+                    </table>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="position_tab">
+                    <h4>Comments on the position</h4>
+                    <p>Hei vaan</p>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="transition_tab">
+                    <h4>Comments on the last move</h4>
+                    <p>Jaahas. Ei oo kyl joseki tää.</p>
+                </div>
+              </div>
             </div>
             <div class="row game-buttons">
                 <p id="status"></p>
@@ -63,6 +103,7 @@
         window.link_url = "{% url 'go9x9' code %}";
         window.json_url = "{% url 'go9x9_json' code %}";
         window.end_json_url = "{% url 'go9x9_end_json' code %}";
+        window.game_json_url = "{% url 'go9x9_game_json' code 1 %}";
     </script>
     <script type="text/javascript" src="{% static 'js/go9x9.js' %}"></script>
 {% endblock %}

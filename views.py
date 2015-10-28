@@ -12,6 +12,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods
 
+from ipware.ip import get_ip
+
 from utils import *
 from chess_data import low_endgames, high_endgames
 from models import *
@@ -144,12 +146,19 @@ class Go9x9View(TemplateView):
         return super(Go9x9View, self).dispatch(*args, **kwargs)
 
 
+def get_user_activity_kwargs(request):
+    if request.user.is_anonymous():
+        return {"ip_address": get_ip(request)}
+    else:
+        return {"user": request.user}
+
 
 LABELS = list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") + [str(i) for i in range(1, 30)] + ["pass"]
 
 
 class Go9x9JSONView(View):
     def get(self, request, *args, **kwargs):
+        user_kwargs = get_user_activity_kwargs(request)
         code = kwargs["code"]
         board = code_to_board(code)
         result = board.to_json()
@@ -177,10 +186,12 @@ class Go9x9JSONView(View):
                 total_continuations += transition.times_played
             if not total_continuations:
                 total_continuations = 1  # Let's not divide by zero
-            if len(position.position_infos.all()) == 1:
-                position_info = position.position_infos.get()
+            position_infos = position.position_infos.all()
+            position_info = position_infos.first()
+            if position_info:
                 info = position_info.game_info.to_json()
                 info["move_number"] = position_info.move_number
+                info["next"] = len(position_infos) > 1
                 result["info"] = info
             label_index = 0
             for transition in qs:
@@ -193,12 +204,15 @@ class Go9x9JSONView(View):
                         transition_info["heuristic_value"] = target.heuristic_value
                         transition_info["low_score"] = target.low_score
                         transition_info["high_score"] = target.high_score
-                        if transition.times_played or target.low_score is not None:
+                        if transition.times_played or target.low_score is not None or target.position_infos.all().exists():
                             if move == "pass":
                                 transition_info["label"] = "pass"
                             else:
                                 transition_info["label"] = LABELS[label_index]
                                 label_index += 1
+                        vote = transition.votes.filter(**user_kwargs).first()
+                        if vote:
+                            transition_info["user_vote"] = vote.type
                         moves[move].update(transition_info)
                     elif child_state.code in redundant_moves_by_code:
                         move = redundant_moves_by_code[child_state.code]
@@ -218,24 +232,21 @@ class Go9x9JSONView(View):
         if "resolve" in data:
             result = self.resolve_position(data["resolve"])
             return HttpResponse(json.dumps(result))
+        else:
+            result = self.vote_transition(request, data)
+            return HttpResponse(json.dumps(result))
+
+    def vote_transition(self, request, data):
         source, created = get_or_create_position(data["source"])
         target, created = get_or_create_position(data["target"])
         type_ = data["type"]
         transition, created = Transition.objects.get_or_create(source=source, target=target)
-        if type_ == "ideal":
-            transition.ideal_votes += 1
-        elif type_ == "good":
-            transition.good_votes += 1
-        elif type_ == "trick":
-            transition.trick_votes += 1
-        elif type_ == "bad":
-            transition.bad_votes += 1
-        elif type_ == "question":
-            transition.question_votes += 1
-        else:
-            raise ValueError("Unknown vote type")
+        user_kwargs = get_user_activity_kwargs(request)
+        vote, created = TransitionVote.objects.get_or_create(transition=transition, **user_kwargs)
+        vote.type = type_
+        vote.save()
         transition.save()
-        return HttpResponse("OK")
+        return transition.to_json()
 
     def resolve_position(self, history):
         source = None
@@ -338,6 +349,19 @@ class Go9x9JSONEndView(View):
             if loop_detected:
                 break
         return HttpResponse(json.dumps(result));
+
+
+class Go9x9JSONGameView(View):
+    def get(self, request, *args, **kwargs):
+        code = kwargs["code"]
+        game_num = int(kwargs["game_num"])
+        state = State.objects.filter(code=code).first()
+        position_infos = state.position.position_infos.all()
+        position_info = position_infos[game_num]
+        info = position_info.game_info.to_json()
+        info["move_number"] = position_info.move_number
+        info["next"] = len(position_infos) - 1 > game_num
+        return HttpResponse(json.dumps(info))
 
 
 

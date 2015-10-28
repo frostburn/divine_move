@@ -15,6 +15,7 @@ urlpatterns = [
     url(r'^go9x9/(?P<code>[a-zA-Z0-9_-]+)/$', views.Go9x9View.as_view(), name='go9x9'),
     url(r'^json/go9x9/(?P<code>[a-zA-Z0-9_-]+)/$', views.Go9x9JSONView.as_view(), name='go9x9_json'),
     url(r'^json/go9x9/end/(?P<code>[a-zA-Z0-9_-]+)/$', views.Go9x9JSONEndView.as_view(), name='go9x9_end_json'),
+    url(r'^json/go9x9/game/(?P<code>[a-zA-Z0-9_-]+)/(?P<game_num>[0-9]+)/$', views.Go9x9JSONGameView.as_view(), name='go9x9_game_json'),
     url(r'^api/go9x9/add_sgf/$', views.go9x9_add_sgf, name='go9x9_sgf_api'),
     url(r'^$', views.IndexView.as_view(), name='index'),
 ]
