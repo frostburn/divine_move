@@ -25,6 +25,7 @@ field_res = {
     "white_rank": white_rank_re,
     "result": result_re,
     "date": re.compile(r'\WDT\[(.+?)\]'),
+    "game_name": re.compile(r'\WGN\[(.+?)\]'),
     "event": re.compile(r'\WEV\[(.+?)\]'),
     "round": re.compile(r'\WRO\[(.+?)\]'),
     "handicap": re.compile(r'\WHA\[(\d+?)\]'),
@@ -45,7 +46,7 @@ def process_sgf(sgf):
     white_player = white_player_re.search(sgf)
     white_player = white_player.group(1) if white_player else None
     if add_black_re.search(sgf):
-        raise NotImplementedError("Add black")
+        raise NotImplementedError("Add black")  #TODO
     if add_white_re.search(sgf):
         raise NotImplementedError("Add white")
     size = int(size_re.search(sgf).group(1))
@@ -80,6 +81,8 @@ def process_sgf(sgf):
 
         player, opponent = opponent, player
         source = target
+    if not moves:
+        raise ValueError("Empty game")
 
     info["hash"] = hasher.hexdigest()
     if GameInfo.objects.filter(**info).exists():
@@ -87,13 +90,13 @@ def process_sgf(sgf):
         raise ValueError("Game already in DB")
 
     game_info = GameInfo.objects.create(**info)
-    first = True
+
+    target_code, _, move_number = moves[0]
+    target, created = get_or_create_position(target_code)
+    PositionInfo.objects.create(position=target, game_info=game_info, move_number=0)
+
     for source_code, target_code, move_number in moves:
-        if first:
-            source, created = get_or_create_position(source_code)
-            first = False
-        else:
-            source = target
+        source = target
         target, created = get_or_create_position(target_code)
         transition, created = Transition.objects.get_or_create(source=source, target=target)
         transition.times_played += 1

@@ -5,12 +5,17 @@ import os
 import subprocess
 
 from django.conf import settings
-from django.http import HttpResponse, Http404
-from django.shortcuts import redirect
+from django.contrib.auth.forms import UserCreationForm
+from django.http import HttpResponse, Http404, HttpResponseRedirect
+from django.shortcuts import redirect, resolve_url
 from django.views.generic import View, RedirectView, TemplateView
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods
+from django.template.response import TemplateResponse
+from django.contrib.sites.shortcuts import get_current_site
+from django.utils.http import is_safe_url
+from django.contrib.auth import REDIRECT_FIELD_NAME, authenticate, login as auth_login, logout as auth_logout
 
 from ipware.ip import get_ip
 
@@ -19,6 +24,72 @@ from chess_data import low_endgames, high_endgames
 from models import *
 from go_board import Board
 from sgf import process_sgf
+
+
+def logout(request):
+    auth_logout(request)
+    return TemplateResponse(request, 'registration/site_logged_out.html')
+
+
+class CompleteUserCreationForm(UserCreationForm):
+    class Meta:
+        model = UserCreationForm.Meta.model
+        fields = ("username", "email", "first_name", "last_name")
+
+def signup(
+        request,
+        template_name='registration/signup.html',
+        redirect_field_name=REDIRECT_FIELD_NAME,
+        user_creation_form=CompleteUserCreationForm,
+        current_app=None,
+        extra_context=None
+    ):
+    """
+    Displays the signup form and handles the signup action.
+    """
+    redirect_to = request.POST.get(redirect_field_name,
+                                   request.GET.get(redirect_field_name, ''))
+
+    if request.method == "POST":
+        form = user_creation_form(request.POST)
+        if form.is_valid():
+
+            # Ensure the user-originating redirection url is safe.
+            if not is_safe_url(url=redirect_to, host=request.get_host()):
+                redirect_to = resolve_url(settings.LOGIN_REDIRECT_URL)
+
+            # Okay, security check complete. Log the user in.
+            user = form.save()
+            user = authenticate(username=form.cleaned_data["username"], password=form.cleaned_data["password1"])
+            auth_login(request, user)
+
+            return HttpResponseRedirect(redirect_to)
+    else:
+        form = user_creation_form()
+
+    current_site = get_current_site(request)
+
+    context = {
+        'form': form,
+        redirect_field_name: redirect_to,
+        'site': current_site,
+        'site_name': current_site.name,
+    }
+    if extra_context is not None:
+        context.update(extra_context)
+
+    if current_app is not None:
+        request.current_app = current_app
+
+    return TemplateResponse(request, template_name, context)
+
+
+class ProfileView(TemplateView):
+    template_name = "accounts/profile.html"
+
+
+class LoginRedirect(RedirectView):
+    pattern = "login"
 
 
 class IndexView(TemplateView):
@@ -159,6 +230,7 @@ LABELS = list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") + [str(i) 
 class Go9x9JSONView(View):
     def get(self, request, *args, **kwargs):
         user_kwargs = get_user_activity_kwargs(request)
+        black_to_play = self.request.GET.get("player") != "white"
         code = kwargs["code"]
         board = code_to_board(code)
         result = board.to_json()
@@ -179,7 +251,7 @@ class Go9x9JSONView(View):
         state = State.objects.filter(code=code).first()
         if state:
             position = state.position
-            result.update(position.to_json())
+            result.update(position.to_json(state, black_to_play, **user_kwargs))
             total_continuations = 0
             qs = position.transitions.all().order_by('-times_played')
             for transition in qs:
@@ -191,7 +263,7 @@ class Go9x9JSONView(View):
             if position_info:
                 info = position_info.game_info.to_json()
                 info["move_number"] = position_info.move_number
-                info["next"] = len(position_infos) > 1
+                info["total_games"] = len(position_infos)
                 result["info"] = info
             label_index = 0
             for transition in qs:
@@ -232,6 +304,12 @@ class Go9x9JSONView(View):
         if "resolve" in data:
             result = self.resolve_position(data["resolve"])
             return HttpResponse(json.dumps(result))
+        elif "message" in data:
+            result = self.add_position_message(request, data)
+            return HttpResponse(json.dumps(result))
+        elif "message_action" in data:
+            result = self.handle_message_action(request, data)
+            return HttpResponse(json.dumps(result))
         else:
             result = self.vote_transition(request, data)
             return HttpResponse(json.dumps(result))
@@ -268,6 +346,29 @@ class Go9x9JSONView(View):
             "low_score": position.low_score,
             "high_score": position.high_score,
         }
+
+    def add_position_message(self, request, data):
+        message = data["message"]
+        black_to_play = data["black_to_play"]
+        position, created = get_or_create_position(data["state"])
+        state = position.states.filter(code=data["state"]).first()
+        user_kwargs = get_user_activity_kwargs(request)
+        message = PositionMessage.objects.create(position=position, state=state, black_to_play=black_to_play, content=message, **user_kwargs)
+        return position.get_messages(state, black_to_play, **user_kwargs)
+
+    def handle_message_action(self, request, data):
+        user_kwargs = get_user_activity_kwargs(request)
+        black_to_play = data["black_to_play"]
+        state = State.objects.filter(code=data["state"]).first()
+        action = data["message_action"]
+        message = PositionMessage.objects.get(pk=data["pk"])
+        if action == "flag":
+            message.flags += 1
+        elif action == "delete":
+            message.deleted = True
+        message.save()
+        return state.position.get_messages(state, black_to_play, **user_kwargs)
+
 
 
 def pre_cascade(position, seen_pks):
@@ -360,7 +461,7 @@ class Go9x9JSONGameView(View):
         position_info = position_infos[game_num]
         info = position_info.game_info.to_json()
         info["move_number"] = position_info.move_number
-        info["next"] = len(position_infos) - 1 > game_num
+        info["total_games"] = len(position_infos)
         return HttpResponse(json.dumps(info))
 
 

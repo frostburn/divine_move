@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% load site_filters %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <p>You have been logged out.</p>
+        <a href="{% url 'login' %}">Login</a> again.
+    </div>
+</div>
+{% endblock content %}

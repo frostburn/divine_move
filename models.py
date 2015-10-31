@@ -1,11 +1,13 @@
 from __future__ import division
 from datetime import datetime
 from decimal import Decimal
+import re
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils.html import escape
 
-from go_board import Board
+from go_board import Board, get_orientation
 from utils import *
 
 
@@ -20,6 +22,48 @@ def board_to_code(board):
 def code_to_board(code):
     return Board.from_int(code_to_int(code), 9)
 
+
+player_replacements = {
+    u"Black": u"White",
+    u"black": u"white",
+    u"White": u"Black",
+    u"white": u"black",
+}
+player_replacements = dict((re.escape(key), value) for key, value in player_replacements.items())
+player_re = re.compile(ur"|".join(ur"\b" + key + ur"\b" for key in player_replacements.keys()))
+def swap_players(m):
+    return player_replacements[re.escape(m.group(0))]
+
+
+X_MAP = "ABCDEFGHJ"
+coords = []
+bad_coord_sub = {}
+coord_subs = {
+    "mirror_d": {},
+    "mirror_dh": {},
+    "mirror_dhv": {},
+    "mirror_dv": {},
+    "mirror_h": {},
+    "mirror_hv": {},
+    "mirror_v": {},
+}
+for y in xrange(9):
+    for x in xrange(9):
+        coord = "%s%d" % (X_MAP[x], 9 - y)
+        coords.append(coord)
+        bad_coord = "%d%s" % (9 - y, X_MAP[x])
+        bad_coord_sub[bad_coord] = coord
+        bad_coord_sub[coord.lower()] = coord
+        bad_coord_sub[bad_coord.lower()] = coord
+        coord_subs["mirror_d"][coord] = "%s%d" % (X_MAP[8 - y], x + 1)
+        coord_subs["mirror_dh"][coord] = "%s%d" % (X_MAP[y], x + 1)
+        coord_subs["mirror_dhv"][coord] = "%s%d" % (X_MAP[y], 9 - x)
+        coord_subs["mirror_dv"][coord] = "%s%d" % (X_MAP[8 - y], 9 - x)
+        coord_subs["mirror_h"][coord] = "%s%d" % (X_MAP[8 - x], 9 - y)
+        coord_subs["mirror_hv"][coord] = "%s%d" % (X_MAP[8 - x], y + 1)
+        coord_subs["mirror_v"][coord] = "%s%d" % (X_MAP[x], y + 1)
+coord_re = re.compile(ur"|".join(ur"\b" + coord + ur"\b" for coord in coords))
+bad_coord_re = re.compile(ur"|".join(ur"\b" + coord + ur"\b" for coord in bad_coord_sub.keys()))
 
 class Position(models.Model):
     """
@@ -62,12 +106,35 @@ class Position(models.Model):
     def add_bins(self, bins):
         self.set_bins([a + b for a, b in zip(bins, self.get_bins())])
 
-    def to_json(self):
+    def get_messages(self, state, black_to_play, user=None, ip_address=None):
+        result = []
+        for message in self.messages.filter(deleted=False, anti_flags__gte=models.F('flags')).order_by('-created'):
+            content = bad_coord_re.sub(lambda m: bad_coord_sub[m.group(0)], message.content)
+            if black_to_play != message.black_to_play:
+                content = player_re.sub(swap_players, content)
+            if message.state != state:
+                orientation = get_orientation(
+                    code_to_board(message.state.code),
+                    code_to_board(state.code)
+                )
+                content = coord_re.sub(lambda m: coord_subs[orientation][m.group(0)], content)
+            content = coord_re.sub(lambda m: u"<span class=message-coord>" + m.group(0) + u"</span>", escape(content))
+            result.append({
+                "content": content,
+                "user": message.user.username if message.user else message.ip_address,
+                "date": message.created.strftime("%Y-%m-%d %H:%M:%S"),
+                "editable": (user is not None and user == message.user) or (ip_address is not None and ip_address == message.ip_address),
+                "pk": message.pk,
+            })
+        return result
+
+    def to_json(self, state, black_to_play, user=None, ip_address=None):
         return {
             "bins": self.get_bins(),
             "heuristic_value": self.heuristic_value,
             "low_score": self.low_score,
             "high_score": self.high_score,
+            "messages": self.get_messages(state, black_to_play, user, ip_address),
         }
 
 
@@ -119,6 +186,7 @@ def parse_game_info(data):
         data["komi"] = Decimal(data["komi"])
     else:
         data["komi"] = None
+    #TODO: quality
     return data
 
 
@@ -133,6 +201,7 @@ class GameInfo(models.Model):
     white_rank = models.CharField(max_length=8)
     result = models.CharField(max_length=8)
     date = models.DateField(null=True)
+    game_name = models.CharField(max_length=64)
     event = models.CharField(max_length=64)
     round = models.SmallIntegerField(null=True)
     handicap = models.SmallIntegerField(null=True)
@@ -145,6 +214,9 @@ class GameInfo(models.Model):
     # Other fields
     hash = models.CharField(max_length=32)
     quality = models.SmallIntegerField(default=0)
+    upvotes = models.IntegerField(default=0)
+    downvotes = models.IntegerField(default=0)
+    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["quality"]
@@ -157,6 +229,7 @@ class GameInfo(models.Model):
             "white_rank": self.white_rank,
             "result": self.result,
             "date": self.date.strftime("%Y-%m-%d") if self.date else "",
+            "game_name": self.game_name,
             "event": self.event,
             "round": self.round,
             "handicap": self.handicap,
@@ -166,6 +239,7 @@ class GameInfo(models.Model):
             "time": self.time,
             "overtime": self.overtime,
             "total_moves": len(self.position_infos.all()),
+            "pk": self.pk,
         }
         for key, value in data.items():
             if value is None:
@@ -266,6 +340,7 @@ class BaseMessage(BaseUserActivity):
     downvotes = models.IntegerField(default=0)
     flags = models.IntegerField(default=0)
     anti_flags = models.IntegerField(default=0)
+    deleted = models.BooleanField(default=False)
     content = models.TextField()
 
     class Meta:
@@ -274,6 +349,8 @@ class BaseMessage(BaseUserActivity):
 
 class PositionMessage(BaseMessage):
     position = models.ForeignKey('Position', related_name='messages')
+    state = models.ForeignKey('State')
+    black_to_play = models.BooleanField()
 
 
 class TransitionMessage(BaseMessage):

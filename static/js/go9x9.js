@@ -24,6 +24,7 @@
         ["date", "Date"],
         ["handicap", "Handicap"],
         ["komi", "Komi"],
+        ["game_name", "Game name"],
         ["event", "Event"],
         ["round", "Round"],
         ["place", "Place"],
@@ -39,11 +40,14 @@
         if (score < -7){
             rgb = [0, 0, Math.pow((81 + score) / 74, 2)];
         }
+        else if (score < 0){
+            rgb = [0, (score + 7) / 7, -score / 7];
+        }
         else if (score < 7){
-            rgb = [(7 + score) / 14, 0, (7 - score) / 14];
+            rgb = [score / 7, (7 - score) / 7, 0];
         }
         else {
-            var w = Math.pow((score - 7) / 74, 2);
+            var w = 1 - Math.pow(1 - (score - 7) / 74, 2);
             rgb = [1, w, w];
         }
         return "rgb(" + (255 * rgb[0]).toFixed(0) + ", " + (255 * rgb[1]).toFixed(0) + ", " + (255 * rgb[2]).toFixed(0) + ")";
@@ -72,6 +76,15 @@
         bg.attr({"fill-opacity": 0.7});
         var square = shape.rect(0.6 * scale, 0.6 * scale).center(x, y).fill("none");
         square.stroke({width: 2, color: "#333"});
+        return shape;
+    }
+
+    function triangle(draw, x, y){
+        var shape = draw.path("M -0.866 0.5 L 0 -1 L 0.866 0.5 z M 1.3 0.75 L 0 -1.5 L -1.3 0.75 z");
+        var s = 0.3 * scale;
+        shape.scale(s);
+        shape.center(x / s, (y - 0.2 * scale) / s);
+        shape.fill("#0ff");
         return shape;
     }
 
@@ -202,10 +215,15 @@
         $game_info = $("#game_info");
         $previous_game = $("#previous_game");
         $next_game = $("#next_game");
+        $game_number = $("#game_number");
+        $total_games = $("#total_games");
         $game_info.empty();
         $previous_game.prop("disabled", game_num == 0);
 
         if (data){
+            $game_number.text(game_num + 1);
+            $total_games.text(data.total_games);
+            $next_game.prop("disabled", game_num + 1 >= data.total_games);
             $(game_info_structure).each(function(_, kn){
                 var key = kn[0];
                 var name = kn[1];
@@ -218,9 +236,10 @@
                     $game_info.append($tr);
                 }
             });
-            $next_game.prop("disabled", !data.next);
         }
         else {
+            $game_number.text(0);
+            $total_games.text(0);
             $next_game.prop("disabled", true);
         }
     }
@@ -300,6 +319,7 @@
                 event.preventDefault();
                 undos.push(data.endgame);
                 $status.empty();
+                move_num += 1;
                 next_endgame(move_data);
                 $(".vote").attr("disabled", false);
             }
@@ -373,6 +393,7 @@
                 var label = draw.text(move_data.label).font({size: 0.7 * scale}).center(c[0], c[1]).fill("#eee");
                 hints.push(label);
             }
+            /*
             var val = move_data.heuristic_value;
             if (val !== null && val !== undefined){
                 var hint = hint_draw.rect(1.0 * scale, 1.0 * scale).center(c[0], c[1]);
@@ -380,6 +401,7 @@
                 hint.attr({"fill-opacity": 0.75});
                 hints.push(hint);
             }
+            */
         });
     }
 
@@ -397,45 +419,62 @@
         hover_draw = draw.nested();
         render_playing_area(background_draw);
         add_hovers(foreground_draw, hover_draw);
-        render_stones(foreground_draw, midground_draw, data);
-        set_score(data);
+        set_position(data);
         draw.move(-board.x(), -board.y());
         svg.size(board.width(), board.height());
         svg.addClass("center-block");
     }
 
+    function set_position(data){
+        render_stones(foreground_draw, midground_draw, data);
+        set_score(data);
+        set_messages(data.messages);
+        var $status = $("#status");
+        var $resolve = $("#resolve");
+        var $permalink = $("#permalink");
+        var $undo = $("#undo");
+        if (data.passes == 1){
+            $status.text("The opponent passed.");
+        }
+        else if (data.passes == 2){
+            $status.text("The game has ended.");
+            $resolve.prop("disabled", false);
+        }
+        else {
+            $status.empty();
+        }
+        var parts = window.link_url.split("/");
+        parts[parts.length - 2] = current_data.endgame;
+        var url = parts.join("/");
+        if (!black_to_play()){
+            url += "?player=white";
+        }
+        $permalink.attr("href", url);
+        $undo.prop("disabled", undos.length == 0);
+    }
+
     function next_endgame(move_data){
-        move_num += 1;
         var parts = window.json_url.split("/");
         parts[parts.length - 2] = move_data.endgame;
         var url = parts.join("/");
+        if (!black_to_play()){
+            url += "?player=white";
+        }
         var $vote_buttons = $(".vote")
         $vote_buttons.attr("disabled", true);
         var $resolve = $("#resolve");
-        $resolve.addClass("hidden");
+        $resolve.prop("disabled", true);
         //console.log(move_data);
         $.ajax({
             url: url,
             dataType: "json",
             success: function(data){
-                console.log(data);
+                //console.log(data);
                 if (data.status != "OK"){
                     return;
                 }
                 current_data = data;
-                render_stones(foreground_draw, midground_draw, data);
-                set_score(data);
-                var $status = $("#status");
-                if (data.passes == 1){
-                    $status.text("The opponent passed.");
-                }
-                else if (data.passes == 2){
-                    $status.text("The game has ended.");
-                    $resolve.removeClass("hidden");
-                }
-                else {
-                    $status.empty();
-                }
+                set_position(data);
                 set_vote_labels(move_data);
             }
         });
@@ -460,11 +499,95 @@
         });
     }
 
+    function set_messages(data){
+        var $messages = $("#messages");
+        $messages.empty();
+        $(data).each(function(_, message){
+            var $blockquote = $("<blockquote>");
+            $blockquote.addClass("message");
+            var $span = $("<span>");
+            $span.addClass("glyphicon glyphicon-trash pull-right message-action");
+            $span.attr("aria-hidden", true);
+            $span.attr("data-toggle", "tooltip");
+            $span.attr("data-placement", "bottom");
+            $span.data("pk", message.pk);
+            if (message.editable){
+                $span.addClass("glyphicon-trash");
+                $span.attr("title", "Delete");
+                $span.data("action", "delete");
+            }
+            else {
+                $span.addClass("glyphicon-flag");
+                $span.attr("title", "Flag as inappropriate");
+                $span.data("action", "flag");
+            }
+            $span.tooltip();
+            $span.show();
+            $span.fadeTo(0, 0);
+            $blockquote.append($span);
+            var $p = $("<p>");
+            $p.html(message.content);
+            $blockquote.append($p);
+            var $footer = $("<footer>");
+            var $strong = $("<strong>");
+            $strong.text(message.user);
+            $footer.append($strong);
+            $footer.append(" on " + message.date);
+            $blockquote.append($footer);
+            $messages.append($blockquote);
+        });
+        $(".message").hover(
+            function(){
+                var $this = $(this);
+                $this.addClass("active");
+                $this.children(".message-action").fadeTo("fast", 1);
+            },
+            function(){
+                var $this = $(this);
+                $this.removeClass("active");
+                $this.children(".message-action").fadeTo("fast", 0);
+            }
+        );
+        $(".message-coord").each(function(_, mc){
+            var $mc = $(mc);
+            var coord = $mc.text().replace("J", "I");
+            coord = coord[0] + (9 - coord[1]);
+            c = draw_coords(coord);
+            var mark = triangle(foreground_draw, c[0], c[1]);
+            mark.attr("fill-opacity", 0.0);
+            $mc.hover(
+                function(){
+                    mark.attr("fill-opacity", 0.9);
+                },
+                function(){
+                    mark.attr("fill-opacity", 0.0);
+                }
+            );
+        });
+        $(".message-action").click(function(){
+            var $this = $(this);
+            var data = {
+                "message_action": $this.data("action"),
+                "pk": $this.data("pk"),
+                "state": current_data.endgame,
+                "black_to_play": black_to_play()
+            };
+            $.post(
+                window.json_url,
+                JSON.stringify(data),
+                function(data) {
+                    set_messages(data);
+                },
+                "json"
+            );
+        });
+    }
+
     var current_data;
     $(document).ready(function(){
         $("#undo").click(function(){
             if (undos.length){
-                move_num -= 2;
+                move_num -= 1;
                 next_endgame({"endgame": undos.pop()});
             }
         });
@@ -492,7 +615,7 @@
             if (!confirm("Are you sure you want to resolve this position?\nAll stones will be considered alive.")){
                 return;
             }
-            $("#resolve").addClass("hidden");
+            $("#resolve").prop("disabled", true);
             var history = undos.slice();
             history.push(current_data.endgame);
             var data = {
@@ -516,7 +639,7 @@
                 dataType: "json",
                 success: function(data){
                     if (data.length){
-                        move_num += data.length - 1;
+                        move_num += data.length;
                         undos.push(current_data.endgame);
                         $.merge(undos, data.slice(0, data.length - 1));
                         // Clear the board. Color changing objects are a pain.
@@ -550,19 +673,45 @@
             game_num -= 1;
             change_game();
         });
+        var $comment_box = $("#comment_box");
+        $comment_box.focus(function(){
+            $(this).attr("rows", 5);
+            $("#comment_submit").removeClass("hidden");
+        });
+        $("#comment_form").submit(function(e){
+            e.preventDefault();
+            var message = $comment_box.val();
+            if (!message.length){
+                return;
+            }
+            var data = {
+                "message": message,
+                "state": current_data.endgame,
+                "black_to_play": black_to_play()
+            };
+            $.post(
+                window.json_url,
+                JSON.stringify(data),
+                function(data) {
+                    $comment_box.val("");
+                    set_messages(data);
+                },
+                "json"
+            );
+        });
         $.ajax({
             url: window.json_url,
             dataType: "json",
             success: function(data){
-                console.log(data);
+                //console.log(data);
                 if (data.status != "OK"){
                     return;
                 }
                 if (data.passes == 1){
                     $("#status").text("The opponent passed.");
                 }
-                render_board(data);
                 current_data = data;
+                render_board(data);
             }
         });
     });

@@ -1,8 +1,16 @@
-from django.conf.urls import url
+from django.conf.urls import url, include
+from django.views.generic import RedirectView
+from django.contrib.auth import views as auth_views
 
 from . import views
 
 urlpatterns = [
+    url(r'^logout/$', views.logout, name='logout'),  # Redirects to admin views otherwise.
+    url(r'^', include('django.contrib.auth.urls')),
+    url(r'^signup/$', views.signup, name='signup'),
+    url(r'^accounts/profile/$', views.ProfileView.as_view(), name='profile'),
+    url(r'^accounts/login/$', RedirectView.as_view(url='/login/')),
+    url(r'^favicon\.ico$', RedirectView.as_view(url='/static/img/favicon.ico')),
     url(r'^go/$', views.GoIndexView.as_view(), name='go_index'),
     url(r'^go/(?P<endgame_type>[a-z0-9]+)/$', views.GoEmptyView.as_view(), name='go_empty'),
     url(r'^go/(?P<endgame_type>[a-z0-9]+)/(?P<endgame>[a-z0-9]+)/$', views.GoView.as_view(), name='go'),

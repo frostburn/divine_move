@@ -168,6 +168,19 @@ class Board(object):
         self.passes = 0
         self.black_to_play = True
 
+    def __eq__(self, other):
+        return (
+            self.size == other.size and\
+            self.player == other.player and\
+            self.opponent == other.opponent and\
+            self.ko == other.ko and\
+            self.passes == other.passes and\
+            self.black_to_play == other.black_to_play
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def make_move(self, x, y=None, check=False):
         if check:
             old_player = self.player
@@ -500,3 +513,31 @@ class Board(object):
                 elif stone == 2:
                     board.opponent |= m
         return board
+
+
+def get_orientation(a, b):
+    if a == b:
+        return "none"
+    c = a.copy()
+    c.mirror_v()
+    if c == b:
+        return "mirror_v"
+    c.mirror_h()
+    if c == b:
+        return "mirror_hv"
+    c.mirror_v()
+    if c == b:
+        return "mirror_h"
+    c.mirror_d()
+    if c == b:
+        return "mirror_dv"
+    c.mirror_v()
+    if c == b:
+        return "mirror_d"
+    c.mirror_h()
+    if c == b:
+        return "mirror_dh"
+    c.mirror_v()
+    if c == b:
+        return "mirror_dhv"
+    raise ValueError("Non-orientable arguments")

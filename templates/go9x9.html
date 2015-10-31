@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load staticfiles %}
-{% block title %}9x9 Move Explorer Beta{% endblock %}
+{% block title %}Board Explorer 9&times;9{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/go.css' %}">
 {% endblock %}
@@ -8,14 +8,14 @@
     <div class="row">
         <div class="col-md-6">
             <div class="row">
-                <h2 class="text-center">9x9 Board Explorer Beta</h2>
+                <h2 class="text-center">Board Explorer 9&times;9 Beta</h2>
                 <div id="board" class="noselect"></div>
             </div>
             <div class="row game-buttons center-block text-center">
                 <a href="{% url 'go9x9_empty' %}" class="btn btn-default">
                     <span class="glyphicon glyphicon-step-backward" aria-hidden="true"></span>
                 </a>
-                <button id="undo" class="btn btn-default">
+                <button id="undo" class="btn btn-default" disabled>
                     <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
                 </button>
                 <button id="pass" class="btn btn-default">pass</button>
@@ -56,15 +56,18 @@
               <ul class="nav nav-tabs" role="tablist">
                 <li role="presentation" class="active"><a href="#stats_tab" aria-controls="stats_tab" role="tab" data-toggle="tab">Statistics</a></li>
                 <li role="presentation"><a href="#game_tab" aria-controls="game_tab" role="tab" data-toggle="tab">Game Information</a></li>
-                <li role="presentation"><a href="#position_tab" aria-controls="position_tab" role="tab" data-toggle="tab">Position Comments</a></li>
-                <li role="presentation" class="disabled"><a href="#transition_tab" aria-controls="transition_tab" role="tab" data-toggle="tab">Move Comments</a></li>
+                <li role="presentation"><a href="#position_tab" aria-controls="position_tab" role="tab" data-toggle="tab">Comments</a></li>
+                {% comment %}
+                    <li role="presentation" class="disabled"><a href="#transition_tab" aria-controls="transition_tab" role="tab" data-toggle="tab">Move Comments</a></li>
+                {% endcomment %}
+                <li role="presentation"><a href="#tools_tab" aria-controls="tools_tab" role="tab" data-toggle="tab">Tools</a></li>
               </ul>
 
               <!-- Tab panes -->
               <div class="tab-content">
                 <div role="tabpanel" class="tab-pane active" id="stats_tab">
                     <h4>Statistics for the next move</h4>
-                    <table cellspacing="1" cellpadding="0" border="0" class="table table-bordered">
+                    <table class="table table-bordered">
                         <tbody id="statistics"></tbody>
 
                     </table>
@@ -77,23 +80,43 @@
                     <button id="next_game" class="btn btn-primary" disabled>
                         <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
                     </button>
-                    <table cellspacing="0" cellpadding="0" border="0" class="table table-striped">
+                    <!-- sorting -->
+                    <!-- next, previous -->
+                    <span id="game_number">0</span> / <span id="total_games">0</span>
+                    <table class="table table-striped">
                         <tbody id="game_info"></tbody>
                     </table>
                 </div>
                 <div role="tabpanel" class="tab-pane" id="position_tab">
                     <h4>Comments on the position</h4>
-                    <p>Hei vaan</p>
+                    <div>
+                        <form id="comment_form">
+                            <div class="form-group">
+                                <textarea id="comment_box" rows="2" class="form-control" placeholder="Type new comments here."></textarea>
+                            </div>
+                            <button id="comment_submit" type="submit" class="btn btn-default hidden">Add Comment</button>
+                        </form>
+                    </div>
+                    <div id="messages" class="messages">
+                    </div>
                 </div>
-                <div role="tabpanel" class="tab-pane" id="transition_tab">
-                    <h4>Comments on the last move</h4>
-                    <p>Jaahas. Ei oo kyl joseki tää.</p>
+                {% comment %}
+                    <div role="tabpanel" class="tab-pane" id="transition_tab">
+                        <h4>Comments on the last move</h4>
+                    </div>
+                {% endcomment %}
+                <div role="tabpanel" class="tab-pane" id="tools_tab">
+                    <h4>Tools</h4>
+                    <a id="permalink" href="{% url 'go9x9' code %}">Permalink to position</a>
+                    <div class="game-buttons">
+                        <p>You can add the score of the position to the tree after two consecutive passes.</p>
+                        <button id="resolve" class="btn btn-default" disabled="">Resolve position</button>
+                    </div>
                 </div>
               </div>
             </div>
             <div class="row game-buttons">
                 <p id="status"></p>
-                <button id="resolve" class="btn btn-default hidden">resolve</button>
             </div>
         </div>
     </div>
