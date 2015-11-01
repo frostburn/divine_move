@@ -10,7 +10,10 @@ class Command(BaseCommand):
         pass
 
     def handle(self, *args, **options):
-        for position in Position.objects.all():
+        total = len(Position.objects.all())
+        for i, position in enumerate(Position.objects.all()):
+            if i % 100 == 0:
+                self.stdout.write("%d / %d" % (i, total))
             board = code_to_board(position.states.all().first().code)
             for coord, child in board.children(False):
                 child_code = board_to_code(child)

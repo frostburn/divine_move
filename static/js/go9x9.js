@@ -506,6 +506,7 @@
         $.ajax({
             url: url,
             dataType: "json",
+            async: false,
             success: function(data){
                 //console.log(data);
                 if (data.status != "OK"){
@@ -679,6 +680,7 @@
             $.ajax({
                 url: url,
                 dataType: "json",
+                async: false,
                 success: function(data){
                     if (data.length){
                         move_num += data.length;

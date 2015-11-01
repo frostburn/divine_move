@@ -171,7 +171,8 @@ def _rank_to_q(rank):
     elif rank.endswith("d"):
         return int(rank[:-1])
     elif rank.endswith("p"):
-        return 7 + int(rank[:-1])
+        return 1 + int(rank[:-1])
+    return -2
 
 
 def parse_game_info(data):
@@ -235,7 +236,7 @@ class GameInfo(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["quality"]
+        ordering = ["-quality"]
 
     def cache_points(self, commit=True):
         self.points = len(self.votes.filter(type=GameVote.UPVOTE)) - len(self.votes.filter(type=GameVote.DOWNVOTE))
@@ -259,7 +260,7 @@ class GameInfo(models.Model):
             "rules": self.rules,
             "time": self.time,
             "overtime": self.overtime,
-            "total_moves": len(self.position_infos.all()),
+            "total_moves": len(self.position_infos.all()) - 1,  # Don't count the 0th move.
             "pk": self.pk,
             "points": self.points,
         }

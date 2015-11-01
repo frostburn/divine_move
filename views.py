@@ -477,18 +477,24 @@ class Go9x9JSONEndView(View):
 def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, game_id=None, unique_children=None, user_kwargs=None):
     if not position:
         position = State.objects.filter(code=code).first().position
+    # Secondary sort by date for unique order.
     position_infos = position.position_infos.all()
     if not position_infos.exists():
         return None
     if sort == "popularity":
-        position_infos = position_infos.order_by("-game_info__points")
+        position_infos = position_infos.order_by("-game_info__points", "-game_info__created")
     elif sort == "date":
         position_infos = position_infos.order_by("-game_info__created")
+    else:
+        position_infos = position_infos.order_by("-game_info__quality", "-game_info__created")
     if game_id is not None:
+        game_id = int(game_id)
         ids = list(position_infos.values_list("game_info__pk", flat=True))
-        game_num = ids.index(int(game_id))
+        game_num = ids.index(game_id)
     position_info = position_infos[game_num]
     game_info = position_info.game_info
+    if game_id is not None:
+        assert game_info.pk == game_id
     info = game_info.to_json()
     move_number = position_info.move_number
     info["move_number"] = position_info.move_number
