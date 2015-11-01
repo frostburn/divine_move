@@ -41,10 +41,6 @@ alpha = "abcdefghijklmnopqrstuvwxyz"
 
 
 def process_sgf(sgf):
-    black_player = black_player_re.search(sgf)
-    black_player = black_player.group(1) if black_player else None
-    white_player = white_player_re.search(sgf)
-    white_player = white_player.group(1) if white_player else None
     if add_black_re.search(sgf):
         raise NotImplementedError("Add black")  #TODO
     if add_white_re.search(sgf):

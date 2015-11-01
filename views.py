@@ -231,6 +231,8 @@ class Go9x9JSONView(View):
     def get(self, request, *args, **kwargs):
         user_kwargs = get_user_activity_kwargs(request)
         black_to_play = self.request.GET.get("player") != "white"
+        sort = self.request.GET.get("sort")
+        game_id = self.request.GET.get("game_id")
         code = kwargs["code"]
         board = code_to_board(code)
         result = board.to_json()
@@ -258,12 +260,8 @@ class Go9x9JSONView(View):
                 total_continuations += transition.times_played
             if not total_continuations:
                 total_continuations = 1  # Let's not divide by zero
-            position_infos = position.position_infos.all()
-            position_info = position_infos.first()
-            if position_info:
-                info = position_info.game_info.to_json()
-                info["move_number"] = position_info.move_number
-                info["total_games"] = len(position_infos)
+            info = get_game_info(position, board=board, sort=sort, game_id=game_id, unique_children=unique_children)
+            if info is not None:
                 result["info"] = info
             label_index = 0
             for transition in qs:
@@ -271,7 +269,7 @@ class Go9x9JSONView(View):
                 for child_state in target.states.all():
                     if child_state.code in moves_by_code:
                         move = moves_by_code[child_state.code]
-                        transition_info = transition.to_json(total_continuations)
+                        transition_info = transition.to_json(total_continuations, user_kwargs)
                         # target.bins skipped to save bandwidth
                         transition_info["heuristic_value"] = target.heuristic_value
                         transition_info["low_score"] = target.low_score
@@ -282,9 +280,6 @@ class Go9x9JSONView(View):
                             else:
                                 transition_info["label"] = LABELS[label_index]
                                 label_index += 1
-                        vote = transition.votes.filter(**user_kwargs).first()
-                        if vote:
-                            transition_info["user_vote"] = vote.type
                         moves[move].update(transition_info)
                     elif child_state.code in redundant_moves_by_code:
                         move = redundant_moves_by_code[child_state.code]
@@ -310,6 +305,9 @@ class Go9x9JSONView(View):
         elif "message_action" in data:
             result = self.handle_message_action(request, data)
             return HttpResponse(json.dumps(result))
+        elif "game_id" in data:
+            result = self.vote_game(request, data)
+            return HttpResponse(json.dumps(result))
         else:
             result = self.vote_transition(request, data)
             return HttpResponse(json.dumps(result))
@@ -325,6 +323,16 @@ class Go9x9JSONView(View):
         vote.save()
         transition.save()
         return transition.to_json()
+
+    def vote_game(self, request, data):
+        type_ = data["type"]
+        game_info = GameInfo.objects.get(pk=int(data["game_id"]))
+        user_kwargs = get_user_activity_kwargs(request)
+        vote, created = GameVote.objects.get_or_create(game_info=game_info, **user_kwargs)
+        vote.type = type_
+        vote.save()
+        game_info.cache_points()
+        return game_info.points
 
     def resolve_position(self, history):
         source = None
@@ -421,6 +429,9 @@ class Go9x9JSONEndView(View):
     """
     def get(self, request, *args, **kwargs):
         code = kwargs["code"]
+        game_id = request.GET.get("game_id")
+        if game_id is not None:
+            game_id = int(game_id)
         result = []
         while True:
             board = code_to_board(code)
@@ -428,9 +439,20 @@ class Go9x9JSONEndView(View):
             if not state:
                 break
             position = state.position
-            qs = position.transitions.filter(times_played__gt=0).order_by('-times_played')
-            if not qs.exists():
-                break
+            if game_id is None:
+                qs = position.transitions.filter(times_played__gt=0).order_by('-times_played')
+                if not qs.exists():
+                    break
+            else:
+                game_info = GameInfo.objects.get(pk=game_id)
+                position_info = position.position_infos.get(game_info=game_info)
+                move_number = position_info.move_number
+                next_info = game_info.position_infos.filter(move_number=(move_number + 1)).first()
+                if next_info:
+                    # Not really a queryset, but hey ducks.
+                    qs = [Transition.objects.get(source=position, target=next_info.position)]
+                else:
+                    break
             valid_codes = set()
             for move, child in board.children(False):
                 child_code = board_to_code(child)
@@ -452,16 +474,68 @@ class Go9x9JSONEndView(View):
         return HttpResponse(json.dumps(result));
 
 
+def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, game_id=None, unique_children=None, user_kwargs=None):
+    if not position:
+        position = State.objects.filter(code=code).first().position
+    position_infos = position.position_infos.all()
+    if not position_infos.exists():
+        return None
+    if sort == "popularity":
+        position_infos = position_infos.order_by("-game_info__points")
+    elif sort == "date":
+        position_infos = position_infos.order_by("-game_info__created")
+    if game_id is not None:
+        ids = list(position_infos.values_list("game_info__pk", flat=True))
+        game_num = ids.index(int(game_id))
+    position_info = position_infos[game_num]
+    game_info = position_info.game_info
+    info = game_info.to_json()
+    move_number = position_info.move_number
+    info["move_number"] = position_info.move_number
+    info["total_games"] = len(position_infos)
+    info["game_num"] = game_num
+    next_info = game_info.position_infos.filter(move_number=(move_number + 1)).first()
+    if next_info:
+        target = next_info.position
+        transition = Transition.objects.filter(source=position, target=target).first()
+        next_info = transition.to_json(user_kwargs=user_kwargs)
+        if unique_children is None:
+            board = code_to_board(code)
+            unique_children, _ = board.children()
+        valid_codes = set(board_to_code(child) for coord, child in unique_children)
+        for state in target.states.all():
+            if state.code in valid_codes:
+                next_info["endgame"] = state.code
+                info["next"] = next_info
+    previous_info = game_info.position_infos.filter(move_number=(move_number - 1)).first()
+    if previous_info:
+        source = previous_info.position
+        for state in source.states.all():
+            parent = code_to_board(state.code)
+            for coord, child in parent.children(False):
+                child.black_to_play = True
+                if child == board:
+                    info["previous"] = {"endgame": state.code}
+                    break
+            if "previous" in info:
+                break
+    return info
+
+
 class Go9x9JSONGameView(View):
     def get(self, request, *args, **kwargs):
         code = kwargs["code"]
         game_num = int(kwargs["game_num"])
-        state = State.objects.filter(code=code).first()
-        position_infos = state.position.position_infos.all()
-        position_info = position_infos[game_num]
-        info = position_info.game_info.to_json()
-        info["move_number"] = position_info.move_number
-        info["total_games"] = len(position_infos)
+        sort = request.GET.get("sort")
+        game_id = request.GET.get("game_id")
+        user_kwargs = get_user_activity_kwargs(request)
+        info = get_game_info(
+            game_num=game_num,
+            code=code,
+            sort=sort,
+            game_id=game_id,
+            user_kwargs=user_kwargs,
+        )
         return HttpResponse(json.dumps(info))
 
 

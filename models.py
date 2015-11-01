@@ -130,8 +130,8 @@ class Position(models.Model):
 
     def to_json(self, state, black_to_play, user=None, ip_address=None):
         return {
-            "bins": self.get_bins(),
-            "heuristic_value": self.heuristic_value,
+            # "bins": self.get_bins(),
+            # "heuristic_value": self.heuristic_value,
             "low_score": self.low_score,
             "high_score": self.high_score,
             "messages": self.get_messages(state, black_to_play, user, ip_address),
@@ -158,9 +158,27 @@ class PositionInfo(models.Model):
     move_number = models.SmallIntegerField()
 
 
+def _rank_to_q(rank):
+    if rank is None:
+        return -1
+    rank = rank.lower()
+    rank = rank.replace(" ", "")
+    rank = rank.replace("pro", "p")
+    rank = rank.replace("dan", "d")
+    rank = rank.replace("kyu", "k")
+    if rank.endswith("k"):
+        return 1 - int(rank[:-1])
+    elif rank.endswith("d"):
+        return int(rank[:-1])
+    elif rank.endswith("p"):
+        return 7 + int(rank[:-1])
+
+
 def parse_game_info(data):
+    data["quality"] = _rank_to_q(data["black_rank"]) + _rank_to_q(data["white_rank"])
     for name, field in data.items():
-        data[name] = field or ""
+        if field is None:
+            data[name] = ""
     date = data["date"]
     if date:
         if date.count("-") == 2:
@@ -186,7 +204,6 @@ def parse_game_info(data):
         data["komi"] = Decimal(data["komi"])
     else:
         data["komi"] = None
-    #TODO: quality
     return data
 
 
@@ -214,12 +231,16 @@ class GameInfo(models.Model):
     # Other fields
     hash = models.CharField(max_length=32)
     quality = models.SmallIntegerField(default=0)
-    upvotes = models.IntegerField(default=0)
-    downvotes = models.IntegerField(default=0)
+    points = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["quality"]
+
+    def cache_points(self, commit=True):
+        self.points = len(self.votes.filter(type=GameVote.UPVOTE)) - len(self.votes.filter(type=GameVote.DOWNVOTE))
+        if commit:
+            self.save()
 
     def to_json(self):
         data = {
@@ -240,6 +261,7 @@ class GameInfo(models.Model):
             "overtime": self.overtime,
             "total_moves": len(self.position_infos.all()),
             "pk": self.pk,
+            "points": self.points,
         }
         for key, value in data.items():
             if value is None:
@@ -255,7 +277,7 @@ class Transition(models.Model):
     target = models.ForeignKey('Position', related_name='parent_transitions')
     times_played = models.IntegerField(default=0)
 
-    def to_json(self, total_continuations=None):
+    def to_json(self, total_continuations=None, user_kwargs=None):
         if total_continuations is None:
             total_continuations = 1
         likelyhood = self.times_played / total_continuations
@@ -268,6 +290,10 @@ class Transition(models.Model):
             "bad": 0,
             "question": 0,
         }
+        if user_kwargs:
+            vote = self.votes.filter(**user_kwargs).first()
+            if vote:
+                result["user_vote"] = vote.type
         for vote in self.votes.all():
             result[vote.type] += 1
         color = "#" + 3 * ("%02d" % (99 - 40 * likelyhood))
@@ -333,6 +359,17 @@ class TransitionVote(BaseUserActivity):
     )
     type = models.CharField(max_length=8, choices=TYPE_CHOICES, default=GOOD)
     transition = models.ForeignKey('Transition', related_name='votes')
+
+
+class GameVote(BaseUserActivity):
+    UPVOTE = 'upvote'
+    DOWNVOTE = 'downvote'
+    TYPE_CHOICES = (
+        (UPVOTE, 'Upvote'),
+        (DOWNVOTE, 'Downvote'),
+    )
+    type = models.CharField(max_length=8, choices=TYPE_CHOICES)
+    game_info = models.ForeignKey('GameInfo', related_name='votes')
 
 
 class BaseMessage(BaseUserActivity):

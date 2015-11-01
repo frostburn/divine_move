@@ -210,6 +210,9 @@
     }
 
     var game_num = 0;
+    var game_id = null;
+    var game_next_data = null;
+    var game_previous_data = null;
 
     function set_game_info(data){
         $game_info = $("#game_info");
@@ -217,13 +220,19 @@
         $next_game = $("#next_game");
         $game_number = $("#game_number");
         $total_games = $("#total_games");
+        $game_points = $("#game_points");
+        $game_next = $("#game_next");
+        $game_previous = $("#game_previous");
+        $game_end = $("#game_end");
         $game_info.empty();
-        $previous_game.prop("disabled", game_num == 0);
 
         if (data){
+            game_num = data.game_num;
+            $previous_game.prop("disabled", game_num == 0);
             $game_number.text(game_num + 1);
             $total_games.text(data.total_games);
             $next_game.prop("disabled", game_num + 1 >= data.total_games);
+            $game_points.text(data.points);
             $(game_info_structure).each(function(_, kn){
                 var key = kn[0];
                 var name = kn[1];
@@ -236,11 +245,36 @@
                     $game_info.append($tr);
                 }
             });
+            game_id = data.pk;
+            if ("next" in data){
+                $game_next.prop("disabled", false);
+                game_next_data = data.next;
+            }
+            else {
+                $game_next.prop("disabled", true);
+                game_next_data = null;
+            }
+            if ("previous" in data){
+                $game_previous.prop("disabled", false);
+                game_previous_data = data.previous;
+            }
+            else {
+                $game_previous.prop("disabled", true);
+                game_previous_data = null;
+            }
+            $game_end.prop("disabled", false);
         }
         else {
+            game_id = null;
+            $previous_game.prop("disabled", true);
             $game_number.text(0);
             $total_games.text(0);
             $next_game.prop("disabled", true);
+            $game_next.prop("disabled", true);
+            game_next_data = null;
+            $game_previous.prop("disabled", true);
+            game_previous_data = null;
+            $game_end.prop("disabled", true);
         }
     }
 
@@ -453,12 +487,16 @@
         $undo.prop("disabled", undos.length == 0);
     }
 
-    function next_endgame(move_data){
+    function next_endgame(move_data, game_pk){
         var parts = window.json_url.split("/");
         parts[parts.length - 2] = move_data.endgame;
         var url = parts.join("/");
+        url += "?sort=" + $("#sort").val();
         if (!black_to_play()){
-            url += "?player=white";
+            url += "&player=white";
+        }
+        if (game_pk !== undefined){
+            url += "&game_id=" + game_pk;
         }
         var $vote_buttons = $(".vote")
         $vote_buttons.attr("disabled", true);
@@ -491,10 +529,11 @@
             else {
                 num = "";
             }
-            $this.siblings('span').text(num);
+            $this.siblings("span").text(num);
             var $label = $this.parent();
+            $label.removeClass("active");
             if (data.user_vote == name){
-                $label.addClass('active');
+                $label.addClass("active");
             }
         });
     }
@@ -597,7 +636,7 @@
             if ($this.attr("disabled")){
                 return;
             }
-            var $input = $this.children('input');
+            var $input = $this.children("input");
             var name = $input.val();
             var data = {
                 "type": name,
@@ -630,10 +669,13 @@
                 "json"
             );
         });
-        $("#end").click(function(){
+        function go_to_end(game_pk){
             var parts = window.end_json_url.split("/");
             parts[parts.length - 2] = current_data.endgame;
             var url = parts.join("/");
+            if (game_pk !== undefined){
+                url += "?game_id=" + game_pk;
+            }
             $.ajax({
                 url: url,
                 dataType: "json",
@@ -651,12 +693,19 @@
                     }
                 }
             });
+        }
+        $("#end").click(function(){
+            go_to_end();
+        });
+        $("#game_end").click(function(){
+            go_to_end(game_id);
         });
         function change_game(){
             var parts = window.game_json_url.split("/");
             parts[parts.length - 3] = current_data.endgame;
             parts[parts.length - 2] = game_num;
             var url = parts.join("/");
+            url += "?sort=" + $("#sort").val();
             $.ajax({
                 url: url,
                 dataType: "json",
@@ -671,6 +720,49 @@
         });
         $("#previous_game").click(function(){
             game_num -= 1;
+            change_game();
+        });
+        function vote_game(type){
+            if (game_id === null){
+                return;
+            }
+            var data = {
+                "type": type,
+                "game_id": game_id
+            };
+            $.post(
+                window.json_url,
+                JSON.stringify(data),
+                function(points){
+                    $("#game_points").text(points);
+                },
+                "json"
+            );
+        }
+        $("#game_next").click(function(event){
+            event.preventDefault();
+            undos.push(current_data.endgame);
+            $("#status").empty();
+            move_num += 1;
+            next_endgame(game_next_data, game_id);
+            $(".vote").attr("disabled", false);
+        });
+        $("#game_previous").click(function(){
+            undos = [];
+            move_num -= 1;
+            next_endgame(game_previous_data, game_id);
+        });
+        // TODO: Fix ordering bug when voting while sorting by popularity,
+        $("#game_upvote").click(function(e){
+            e.preventDefault();
+            vote_game("upvote");
+        });
+        $("#game_downvote").click(function(e){
+            e.preventDefault();
+            vote_game("downvote");
+        });
+        $("#sort").change(function(){
+            game_num = 0;
             change_game();
         });
         var $comment_box = $("#comment_box");
@@ -699,16 +791,15 @@
                 "json"
             );
         });
+        var url = window.json_url;
+        // TODO: Game ID.
         $.ajax({
-            url: window.json_url,
+            url: url,
             dataType: "json",
             success: function(data){
                 //console.log(data);
                 if (data.status != "OK"){
                     return;
-                }
-                if (data.passes == 1){
-                    $("#status").text("The opponent passed.");
                 }
                 current_data = data;
                 render_board(data);

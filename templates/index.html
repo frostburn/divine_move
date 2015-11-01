@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
     <div class="row">
+        <h2>Collaborative game exploration</h2>
+        <a href="{% url 'go9x9_empty' %}">Board Explorer 9&times;9</a>
         <h2>Perfectly solved two player games of perfect information</h2>
         <a href="{% url 'go_index' %}">Go on tiny boards</a><br>
         <a href="{% url 'chess_index' %}">Chess endgames</a>
