@@ -7,6 +7,7 @@ from utils import *
 
 
 add_black_re = re.compile(r'\WAB\[')
+add_black_stones_re = re.compile(r'\WAB(\[..\])+')
 add_white_re = re.compile(r'\WAW\[')
 black_player_re = re.compile(r'\WPB\[(.+?)\]')
 white_player_re = re.compile(r'\WPW\[(.+?)\]')
@@ -41,17 +42,31 @@ alpha = "abcdefghijklmnopqrstuvwxyz"
 
 
 def process_sgf(sgf):
-    if add_black_re.search(sgf):
-        raise NotImplementedError("Add black")  #TODO
     if add_white_re.search(sgf):
         raise NotImplementedError("Add white")
     size = int(size_re.search(sgf).group(1))
     if size != 9:
         raise ValueError("Only 9x9 supported")
     board = Board(size)
+    flip = False
+    if add_black_re.search(sgf):
+        coords = add_black_stones_re.search(sgf).group(0).split("[")[1:]
+        assert int(field_res["handicap"].search(sgf).group(1)) == len(coords)
+        for coord in coords[:-1]:
+            x = alpha.index(coord[0])
+            y = alpha.index(coord[1])
+            board.make_move(x, y)
+            board.pass_()
+        x = alpha.index(coords[-1][0])
+        y = alpha.index(coords[-1][1])
+        board.make_move(x, y)
+        flip = True
+
     black_moves = black_re.findall(sgf)
     white_moves = white_re.findall(sgf)
     player, opponent = black_moves, white_moves
+    if flip:
+        player,opponent = opponent, player
     info = {}
     for name, field_re in field_res.items():
         field = field_re.search(sgf)
