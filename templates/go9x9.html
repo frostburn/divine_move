@@ -68,8 +68,20 @@
                 <div role="tabpanel" class="tab-pane active" id="stats_tab">
                     <h4>Statistics for the next move</h4>
                     <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Move</th>
+                                <th>Black wins</th>
+                                <th>White wins</th>
+                                <th>Draws</th>
+                                <th>Tree score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="win_statistics"></tbody>
+                    </table>
+                    <h5>Move likelyhoods</h5>
+                    <table class="table table-bordered">
                         <tbody id="statistics"></tbody>
-
                     </table>
                 </div>
                 <div role="tabpanel" class="tab-pane" id="game_tab">

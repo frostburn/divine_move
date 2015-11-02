@@ -208,6 +208,26 @@ def parse_game_info(data):
     return data
 
 
+def parse_result(result):
+    if result is None:
+        return 0
+    result = result.upper()
+    if result[:2] == "B+":
+        sign = 1
+    elif result[:2] == "W+":
+        sign = -1
+    else:
+        return 0
+    try:
+        score = float(result[2:])
+        if score == 0:
+            return 0
+        else:
+            return sign
+    except ValueError:
+        return sign
+
+
 class GameInfo(models.Model):
     """
     A game that was played.
@@ -243,6 +263,12 @@ class GameInfo(models.Model):
         if commit:
             self.save()
 
+    def result_sign(self):
+        """
+        Returns 1 if Black won, -1 if White won and 0 otherwise.
+        """
+        return parse_result(self.result)
+
     def to_json(self):
         data = {
             "black_player": self.black_player,
@@ -277,6 +303,8 @@ class Transition(models.Model):
     source = models.ForeignKey('Position', related_name='transitions')
     target = models.ForeignKey('Position', related_name='parent_transitions')
     times_played = models.IntegerField(default=0)
+    player_wins = models.IntegerField(default=0)
+    opponent_wins = models.IntegerField(default=0)
 
     def to_json(self, total_continuations=None, user_kwargs=None):
         if total_continuations is None:
@@ -285,6 +313,8 @@ class Transition(models.Model):
         result = {
             "times_played": self.times_played,
             "likelyhood": likelyhood,
+            "player_wins": self.player_wins,
+            "opponent_wins": self.opponent_wins,
             "ideal": 0,
             "good": 0,
             "trick": 0,

@@ -86,6 +86,7 @@ def process_sgf(sgf):
         raise ValueError("Game already in DB")
 
     game_info = GameInfo.objects.create(**info)
+    sign = game_info.result_sign()
 
     target_code, _, move_number = moves[0]
     target, created = get_or_create_position(target_code)
@@ -96,5 +97,10 @@ def process_sgf(sgf):
         target, created = get_or_create_position(target_code)
         transition, created = Transition.objects.get_or_create(source=source, target=target)
         transition.times_played += 1
+        if sign > 0:
+            transition.player_wins += 1
+        elif sign < 0:
+            transition.opponent_wins += 1
         transition.save()
         PositionInfo.objects.create(position=target, game_info=game_info, move_number=move_number)
+        sign = -sign

@@ -323,6 +323,8 @@
         var $statistics = $("#statistics");
         $statistics.empty();
         var $stats_row;
+        var $win_statistics = $("#win_statistics");
+        $win_statistics.empty();
         game_num = 0;
         set_game_info(data.info);
         var $next = $("#next");
@@ -366,7 +368,7 @@
                     $stats_row = $("<tr>");
                 }
                 var $td = $('<td width="5%">');
-                $td.html(move_data.label)
+                $td.text(move_data.label)
                 $td.addClass("noselect");
                 $td.css("cursor", "pointer");
                 $td.hover(
@@ -380,6 +382,44 @@
                 $td.click(make_move);
                 $stats_row.append($td);
                 $td = $('<td width="45%">');
+                $td.text((100 * move_data.likelyhood).toFixed(1) + "% (" + move_data.times_played + ")");
+                $stats_row.append($td);
+                if (label_index % 2 == 0){
+                    $statistics.append($stats_row);
+                }
+                label_index += 1;
+
+                var $tr = $("<tr>");
+                $td = $("<td>");
+                $td.text(move_data.label);
+                $tr.append($td);
+                var black_wins;
+                if (black_to_play()){
+                    black_wins = move_data.player_wins;
+                    white_wins = move_data.opponent_wins;
+                }
+                else {
+                    black_wins = move_data.opponent_wins;
+                    white_wins = move_data.player_wins;
+                }
+                var times_played = move_data.times_played;
+                if (times_played == 0){
+                    times_played = 1;
+                }
+                $td = $("<td>");
+                var chance = 100 * black_wins / times_played;
+                $td.text(chance.toFixed(1) + "% (" + black_wins + ")");
+                $tr.append($td);
+                $td = $("<td>");
+                chance = 100 * white_wins / times_played;
+                $td.text(chance.toFixed(1) + "% (" + white_wins + ")");
+                $tr.append($td);
+                $td = $("<td>");
+                var draws = move_data.times_played - black_wins - white_wins;
+                chance = 100 * draws / times_played;
+                $td.text(chance.toFixed(1) + "% (" + draws + ")");
+                $tr.append($td);
+                $td = $("<td>");
                 var score = move_data.low_score;
                 if (score !== null && score !== undefined){
                     if (black_to_play()){
@@ -393,14 +433,11 @@
                     }
                 }
                 else {
-                    score = "";
+                    score = "?";
                 }
-                $td.html((100 * move_data.likelyhood).toFixed(1) + "% (" + move_data.times_played + ")" + score);
-                $stats_row.append($td);
-                if (label_index % 2 == 0){
-                    $statistics.append($stats_row);
-                }
-                label_index += 1;
+                $td.text(score);
+                $tr.append($td);
+                $win_statistics.append($tr);
             }
             var coord = move_data.coord;
             if (coord == "pass"){
