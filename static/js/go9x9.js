@@ -662,6 +662,27 @@
 
     var current_data;
     $(document).ready(function(){
+        $(document).keydown(function(event){
+            if (event.keyCode == 37 || event.keyCode == 39){
+                var prev;
+                var next;
+                console.log($("#game_tab_label"));
+                if ($("#game_tab_label").hasClass("active")){
+                    prev = $("#game_previous");
+                    next = $("#game_next");
+                }
+                else {
+                    prev = $("#undo");
+                    next = $("#next");
+                }
+                if (event.keyCode == 37){
+                    prev.click();
+                }
+                else {
+                    next.click();
+                }
+            }
+        });
         $("#undo").click(function(){
             if (undos.length){
                 move_num -= 1;
