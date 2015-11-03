@@ -313,6 +313,7 @@ class Go9x9JSONView(View):
             return HttpResponse(json.dumps(result))
 
     def vote_transition(self, request, data):
+        transition_sanity_check(data["source"], data["target"])
         source, created = get_or_create_position(data["source"])
         target, created = get_or_create_position(data["target"])
         type_ = data["type"]
@@ -336,11 +337,14 @@ class Go9x9JSONView(View):
 
     def resolve_position(self, history):
         source = None
+        prev_code = None
         for code in history:
             position, created = get_or_create_position(code)
             if source:
+                transition_sanity_check(prev_code, code)
                 Transition.objects.get_or_create(source=source, target=position)
             source = position
+            prev_code = code
         board = code_to_board(code)
         score = board.score()
         seen_pks = set()

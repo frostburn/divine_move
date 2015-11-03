@@ -666,7 +666,6 @@
             if (event.keyCode == 37 || event.keyCode == 39){
                 var prev;
                 var next;
-                console.log($("#game_tab_label"));
                 if ($("#game_tab_label").hasClass("active")){
                     prev = $("#game_previous");
                     next = $("#game_next");
