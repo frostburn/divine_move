@@ -260,7 +260,7 @@ class Go9x9JSONView(View):
                 total_continuations += transition.times_played
             if not total_continuations:
                 total_continuations = 1  # Let's not divide by zero
-            info = get_game_info(position, board=board, sort=sort, game_id=game_id, unique_children=unique_children)
+            info = get_game_info(position, board=board, sort=sort, game_id=game_id, valid_codes=set(moves_by_code.keys()))
             if info is not None:
                 result["info"] = info
             label_index = 0
@@ -271,7 +271,7 @@ class Go9x9JSONView(View):
                         move = moves_by_code[child_state.code]
                         transition_info = transition.to_json(total_continuations, user_kwargs)
                         # target.bins skipped to save bandwidth
-                        transition_info["heuristic_value"] = target.heuristic_value
+                        # transition_info["heuristic_value"] = target.heuristic_value  # Not implemented yet
                         transition_info["low_score"] = target.low_score
                         transition_info["high_score"] = target.high_score
                         if transition.times_played or target.low_score is not None or target.position_infos.all().exists():
@@ -281,7 +281,7 @@ class Go9x9JSONView(View):
                                 transition_info["label"] = LABELS[label_index]
                                 label_index += 1
                         moves[move].update(transition_info)
-                    elif child_state.code in redundant_moves_by_code:
+                    elif "heuristics" is "implemented" and child_state.code in redundant_moves_by_code:
                         move = redundant_moves_by_code[child_state.code]
                         moves[move]["heuristic_value"] = target.heuristic_value
 
@@ -474,7 +474,7 @@ class Go9x9JSONEndView(View):
         return HttpResponse(json.dumps(result));
 
 
-def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, game_id=None, unique_children=None, user_kwargs=None):
+def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, game_id=None, valid_codes=None, user_kwargs=None):
     if not position:
         position = State.objects.filter(code=code).first().position
     # Secondary sort by date for unique order.
@@ -505,10 +505,10 @@ def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, g
         target = next_info.position
         transition = Transition.objects.filter(source=position, target=target).first()
         next_info = transition.to_json(user_kwargs=user_kwargs)
-        if unique_children is None:
+        if valid_codes is None:
             board = code_to_board(code)
             unique_children, _ = board.children()
-        valid_codes = set(board_to_code(child) for coord, child in unique_children)
+            valid_codes = set(board_to_code(child) for coord, child in unique_children)
         for state in target.states.all():
             if state.code in valid_codes:
                 next_info["endgame"] = state.code

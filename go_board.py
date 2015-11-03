@@ -272,70 +272,73 @@ class Board(object):
     def key(self):
         return (self.size, self.player, self.opponent, self.ko, self.passes, self.black_to_play)
 
-    def canonical_key(self):
+    def light_key(self):
+        return (self.player, self.opponent, self.ko)
+
+    def canonical_light_key(self):
         keys = []
         temp = self.copy()
         temp.black_to_play = True
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_v()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_h()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_v()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_d()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_v()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_h()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         temp.mirror_v()
-        keys.append(temp.key())
+        keys.append(temp.light_key())
         return min(keys)
 
     def sisters(self):
         seen = set()
         sisters = []
         temp = self.copy()
-        seen.add(temp.key())
+        seen.add(temp.light_key())
         temp.mirror_v()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
             temp = temp.copy()
             seen.add(key)
         temp.mirror_h()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
             temp = temp.copy()
             seen.add(key)
         temp.mirror_v()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
             temp = temp.copy()
             seen.add(key)
         temp.mirror_d()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
             temp = temp.copy()
             seen.add(key)
         temp.mirror_v()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
             temp = temp.copy()
             seen.add(key)
         temp.mirror_h()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
             temp = temp.copy()
             seen.add(key)
         temp.mirror_v()
-        key = temp.key()
+        key = temp.light_key()
         if key not in seen:
             sisters.append(temp)
         return sisters
@@ -346,22 +349,23 @@ class Board(object):
                 return [], []
             else:
                 return []
+        has_symmetries = False
+        if separate_unique:
+            has_symmetries = len(self.sisters()) < 8
         unique_children = []
         redundant_children = []
         seen = set()
-        y_range = range(self.size)
-        x_range = range(self.size)
         empty = not self.player and not self.opponent
-        for y in y_range:
+        for y in xrange(self.size):
             yy = y
-            for x in x_range:
+            for x in xrange(self.size):
                 if empty:
                     x, y = self.size - 1 - yy, x
                 coord = "%s%d" % (ALPHA[x], y)
                 child = self.copy()
                 if child.make_move(x, y, True):
-                    if separate_unique:
-                        key = child.canonical_key()
+                    if separate_unique and has_symmetries:
+                        key = child.canonical_light_key()
                         if key not in seen:
                             seen.add(key)
                             unique_children.append((coord, child))
