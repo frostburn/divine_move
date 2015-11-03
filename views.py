@@ -250,12 +250,12 @@ class Go9x9JSONView(View):
             moves[move] = {"endgame": child_code}
             redundant_moves_by_code[child_code] = move
 
-        state = State.objects.filter(code=code).first()
+        state = State.objects.filter(code=code).select_related('position').first()
         if state:
             position = state.position
             result.update(position.to_json(state, black_to_play, **user_kwargs))
             total_continuations = 0
-            qs = position.transitions.all().order_by('-times_played')
+            qs = position.transitions.all().order_by('-times_played').prefetch_related('target__states')
             for transition in qs:
                 total_continuations += transition.times_played
             if not total_continuations:
@@ -390,7 +390,7 @@ def pre_cascade(position, seen_pks):
     position.low_score = -777
     position.high_score = 777
     position.save()
-    for parent_transition in position.parent_transitions.all():
+    for parent_transition in position.parent_transitions.all().select_related('source'):
         pre_cascade(parent_transition.source, seen_pks)
 
 
@@ -407,7 +407,7 @@ def cascade(position):
     # Constants chosen for debuging.
     new_low = -888
     new_high = -888
-    for transition in position.transitions.all():
+    for transition in position.transitions.all().select_related('target'):
         child = transition.target
         if child.low_score is not None:
             new_high = max(new_high, -child.low_score)
@@ -419,7 +419,7 @@ def cascade(position):
         position.low_score = new_low
         position.high_score = new_high
         position.save()
-        for parent_transition in position.parent_transitions.all():
+        for parent_transition in position.parent_transitions.all().select_related('source'):
             cascade(parent_transition.source)
 
 
@@ -440,7 +440,7 @@ class Go9x9JSONEndView(View):
                 break
             position = state.position
             if game_id is None:
-                qs = position.transitions.filter(times_played__gt=0).order_by('-times_played')
+                qs = position.transitions.filter(times_played__gt=0).order_by('-times_played').prefetch_related('target__states')
                 if not qs.exists():
                     break
             else:
@@ -500,10 +500,10 @@ def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, g
     info["move_number"] = position_info.move_number
     info["total_games"] = len(position_infos)
     info["game_num"] = game_num
-    next_info = game_info.position_infos.filter(move_number=(move_number + 1)).first()
+    next_info = game_info.position_infos.filter(move_number=(move_number + 1)).select_related('position').first()
     if next_info:
         target = next_info.position
-        transition = Transition.objects.filter(source=position, target=target).first()
+        transition = Transition.objects.filter(source=position, target=target).prefetch_related('target__states').first()
         next_info = transition.to_json(user_kwargs=user_kwargs)
         if valid_codes is None:
             board = code_to_board(code)
@@ -513,7 +513,7 @@ def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, g
             if state.code in valid_codes:
                 next_info["endgame"] = state.code
                 info["next"] = next_info
-    previous_info = game_info.position_infos.filter(move_number=(move_number - 1)).first()
+    previous_info = game_info.position_infos.filter(move_number=(move_number - 1)).prefetch_related('position__states').first()
     if previous_info:
         source = previous_info.position
         for state in source.states.all():
