@@ -353,6 +353,9 @@
         $(moves).each(function(index, move_data){
             var make_move = function(event){
                 event.preventDefault();
+                if ($(this).prop("disabled")){
+                    return;
+                }
                 undos.push(data.endgame);
                 $status.empty();
                 move_num += 1;
@@ -800,6 +803,9 @@
         }
         $("#game_next").click(function(event){
             event.preventDefault();
+            if ($(this).prop("disabled")){
+                return;
+            }
             undos.push(current_data.endgame);
             $("#status").empty();
             move_num += 1;
@@ -807,6 +813,9 @@
             $(".vote").attr("disabled", false);
         });
         $("#game_previous").click(function(){
+            if ($(this).prop("disabled")){
+                return;
+            }
             undos = [];
             move_num -= 1;
             next_endgame(game_previous_data, game_id);
