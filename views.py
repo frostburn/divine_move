@@ -489,11 +489,17 @@ def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, g
         position_infos = position_infos.order_by("-game_info__points", "-game_info__created")
     elif sort == "date":
         position_infos = position_infos.order_by("-game_info__created")
+    elif sort == "tree":
+        position_infos = list(position_infos)
+        position_infos.sort(key=lambda pi: pi.game_info.position_infos.all().order_by('-move_number').first().position.low_score is not None)
     else:
         position_infos = position_infos.order_by("-game_info__quality", "-game_info__created")
     if game_id is not None:
         game_id = int(game_id)
-        ids = list(position_infos.values_list("game_info__pk", flat=True))
+        if isinstance(position_infos, list):
+            ids = [pi.game_info_id for pi in position_infos]
+        else:
+            ids = list(position_infos.values_list("game_info_id", flat=True))
         game_num = ids.index(game_id)
     position_info = position_infos[game_num]
     game_info = position_info.game_info
