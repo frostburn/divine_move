@@ -525,6 +525,8 @@ def get_game_info(position=None, game_num=0, code=None, board=None, sort=None, g
                 info["next"] = next_info
     previous_info = game_info.position_infos.filter(move_number=(move_number - 1)).prefetch_related('position__states').first()
     if previous_info:
+        if board is None:
+            board = code_to_board(code)
         source = previous_info.position
         for state in source.states.all():
             parent = code_to_board(state.code)

@@ -119,3 +119,22 @@ def process_sgf(sgf):
         transition.save()
         PositionInfo.objects.create(position=target, game_info=game_info, move_number=move_number)
         sign = -sign
+
+
+def remove_game(game_info):
+    sign = game_info.result_sign()
+    source = None
+    for position_info in game_info.position_infos.all().order_by('move_number'):
+        target = position_info.position
+        if source is not None:
+            transition = Transition.objects.get(source=source, target=target)
+            transition.times_played -= 1
+            if sign < 0:
+                transition.player_wins -= 1
+            elif sign >0:
+                transition.opponent_wins -= 1
+            transition.save()
+        position_info.delete()
+        source = target
+        sign = -sign
+    game_info.delete()
