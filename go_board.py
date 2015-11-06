@@ -189,6 +189,9 @@ class Board(object):
         if y is None:
             y = x // self.size
             x = x % self.size
+        if x >= self.size or y >= self.size:
+            self.pass_()
+            return
         move = 1 << (x + y * self.v_shift)
         legal = not ((self.player | self.opponent | self.ko) & move)
         if not legal:
