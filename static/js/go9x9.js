@@ -441,16 +441,31 @@
                 $td.text(chance.toFixed(1) + "% (" + draws + ")");
                 $tr.append($td);
                 $td = $("<td>");
-                var score = move_data.low_score;
-                if (score !== null && score !== undefined){
+                var score;
+                var low_score = move_data.low_score;
+                var high_score = move_data.high_score;
+                if (low_score !== null && low_score !== undefined){
                     if (black_to_play()){
-                        score = -score;
+                        var temp = low_score;
+                        low_score = -high_score;
+                        high_score = -temp;
                     }
-                    if (score >= 0){
-                        score = " B+" + score;
+                    if (low_score == high_score){
+                        if (low_score >= 0){
+                            score = "B+" + low_score;
+                        }
+                        else {
+                            score = "W+" + (-low_score);
+                        }
                     }
                     else {
-                        score = " W+" + (-score);
+                        if (low_score >= 0){
+                            low_score = "+" + low_score;
+                        }
+                        if (high_score >= 0){
+                            high_score = "+" + high_score;
+                        }
+                        score = "B" + low_score + " to B" + high_score;
                     }
                 }
                 else {

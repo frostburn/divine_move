@@ -206,6 +206,10 @@ class ChessJSONView(View):
         return HttpResponse(result)
 
 
+class Go9x9FAQView(TemplateView):
+    template_name = "go9x9_faq.html"
+
+
 class Go9x9View(TemplateView):
     template_name = "go9x9.html"
     def get_context_data(self, *args, **kwargs):

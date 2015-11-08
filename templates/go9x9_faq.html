@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Board Explorer 9&times;9 FAQ{% endblock %}
+{% block content %}
+    <div class="row">
+        <h2>Frequently Asked Questions</h2>
+        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingOne">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                  What is this tool?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+              <div class="panel-body">
+                The Board Explorer is a tool for exploring go games played on a 9&times;9 go board. It tries to combine the best features Josekipedia and Fuseki Info adapted to a small board size. You can vote for moves and comment on positions while exploring exiting games. Game positions are automatically transposed and symmetries eliminated.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingTwo">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                  How do I review a game in a different orientation?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseTwo" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+              <div class="panel-body">
+                Just play the moves in the desired way and the tool will automatically compensate.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingThree">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                  How do I share a link to a game?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseThree" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingThree">
+              <div class="panel-body">
+                Just copy the the link address of the <button class="btn btn-xs btn-default"><span class="glyphicon glyphicon-step-backward" aria-hidden="true"></span></button> button on the Game Information tab.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingFour">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                  How do I share a link to a position?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseFour" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFour">
+              <div class="panel-body">
+                You can copy the address of the permalink on the Tools tab or use the button to get a permalink with undo and redo history intact.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingFive">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+                  How is the tree score calculated?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseFive" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFive">
+              <div class="panel-body">
+                When a game is finished it's possible to play it untill the very end, capture all possible stones and press 'Resolve position' on the Tools tab. This will calculate the score using Chinese rules and zero komi. The score is then propagated up the tree (back the undo history). Whenever there are multiple choices for the score the best one is chosen according to the color to play. The tree score represents the best result taking into account the opponents best responses. It is highly unstable though so don't follow the tree score blindly in your own games or you'll end up in some exotic position that just doesn't happen to have a refutation in the database yet.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingSix">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+                  Why does the tool show moves that have been played 0 times?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseSix" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingSix">
+              <div class="panel-body">
+                Usually those moves transpose to other games and represent a different move order. Some of those moves show the resolution path or alternate lines of play with a tree score.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingTau">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseTau" aria-expanded="false" aria-controls="collapseTau">
+                  Why do some positions have two tree scores?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseTau" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTau">
+              <div class="panel-body">
+                The game positions are stored as such in the database without move history. Therefore it is not possible to enforce any kind of super-ko rule and positions can be repeated indefinitely. The lower score represents a situation where White repeats the position until Black gives in and loses points. The higher score represents the reverse. The result according to any reasonable super-ko rule should fall between these two extremes.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingSeven">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
+                  How do I report abuse?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseSeven" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingSeven">
+              <div class="panel-body">
+                You can flag a message as inappropriate by hovering over it and clicking the flag icon.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingEight">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
+                  How do I delete my message?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseEight" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingEight">
+              <div class="panel-body">
+                Hover over the message and click the garbage bin icon.
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+{% endblock %}
