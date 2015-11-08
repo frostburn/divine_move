@@ -27,6 +27,11 @@ from go_board import Board
 from sgf import process_sgf
 
 
+def clear_session(request):
+    request.session.flush()
+    return HttpResponse("Session cleared")
+
+
 def logout(request):
     auth_logout(request)
     return TemplateResponse(request, 'registration/site_logged_out.html')

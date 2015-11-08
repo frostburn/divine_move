@@ -5,6 +5,7 @@ from django.contrib.auth import views as auth_views
 from . import views
 
 urlpatterns = [
+    url(r'^clear_session/$',views.clear_session, name='clear_session'),
     url(r'^logout/$', views.logout, name='logout'),  # Redirects to admin views otherwise.
     url(r'^', include('django.contrib.auth.urls')),
     url(r'^signup/$', views.signup, name='signup'),
