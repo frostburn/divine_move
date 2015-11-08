@@ -16,6 +16,7 @@ from django.template.response import TemplateResponse
 from django.contrib.sites.shortcuts import get_current_site
 from django.utils.http import is_safe_url
 from django.contrib.auth import REDIRECT_FIELD_NAME, authenticate, login as auth_login, logout as auth_logout
+from django.utils.safestring import mark_safe
 
 from ipware.ip import get_ip
 
@@ -210,6 +211,17 @@ class Go9x9View(TemplateView):
     def get_context_data(self, *args, **kwargs):
         context = super(Go9x9View, self).get_context_data(*args, **kwargs)
         context.setdefault("code", "h1000000000000000000000")
+        path_id = self.request.GET.get("path_id")
+        if path_id is not None:
+            path = Path.objects.get(pk=path_id)
+            check_history_sanity([path.code] + path.undos + path.redos)
+            context["path"] = True
+            context["code"] = path.code
+            context["undos"] = mark_safe(json.dumps(path.undos))
+            context["redos"] = mark_safe(json.dumps(path.redos))
+        game_id = self.request.GET.get("game_id")
+        if game_id is not None:
+            context["game_id"] = game_id
         return context
 
     @method_decorator(ensure_csrf_cookie)
@@ -308,6 +320,9 @@ class Go9x9JSONView(View):
         elif "game_id" in data:
             result = self.vote_game(request, data)
             return HttpResponse(json.dumps(result))
+        elif "path" in data:
+            result = self.create_path(request, data)
+            return HttpResponse(json.dumps(result))
         else:
             result = self.vote_transition(request, data)
             return HttpResponse(json.dumps(result))
@@ -381,6 +396,24 @@ class Go9x9JSONView(View):
         message.save()
         return state.position.get_messages(state, black_to_play, **user_kwargs)
 
+    def create_path(self, request, data):
+        # Sanity check in case someone is feeling scripty.
+        code = data["state"]
+        undos = data["undos"]
+        redos = data["redos"]
+        check_history_sanity([code] + undos + redos)
+        path = Path.objects.create(code=code, undos=undos, redos=redos)
+        return {
+            "path_id": path.pk,
+        }
+
+
+def check_history_sanity(history):
+    assert isinstance(history, list)
+    for code in history:
+        assert isinstance(code, basestring)
+        assert len(code) == GO_9x9_CODE_LENGTH
+        assert all(c in chars64 for c in code)
 
 
 def pre_cascade(position, seen_pks):

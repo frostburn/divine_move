@@ -54,8 +54,8 @@
             <div class="row">
               <!-- Nav tabs -->
               <ul class="nav nav-tabs" role="tablist">
-                <li role="presentation" class="active"><a href="#stats_tab" aria-controls="stats_tab" role="tab" data-toggle="tab">Statistics</a></li>
-                <li id="game_tab_label" role="presentation"><a href="#game_tab" aria-controls="game_tab" role="tab" data-toggle="tab">Game Information</a></li>
+                <li role="presentation" {% if not game_id %}class="active"{% endif %}><a href="#stats_tab" aria-controls="stats_tab" role="tab" data-toggle="tab">Statistics</a></li>
+                <li id="game_tab_label" role="presentation" {% if game_id %}class="active"{% endif %}><a href="#game_tab" aria-controls="game_tab" role="tab" data-toggle="tab">Game Information</a></li>
                 <li role="presentation"><a href="#position_tab" aria-controls="position_tab" role="tab" data-toggle="tab">Comments</a></li>
                 {% comment %}
                     <li role="presentation" class="disabled"><a href="#transition_tab" aria-controls="transition_tab" role="tab" data-toggle="tab">Move Comments</a></li>
@@ -65,7 +65,7 @@
 
               <!-- Tab panes -->
               <div class="tab-content">
-                <div role="tabpanel" class="tab-pane active" id="stats_tab">
+                <div role="tabpanel" class="tab-pane{% if not game_id %} active{% endif %}" id="stats_tab">
                     <h4>Statistics for the next move</h4>
                     <table class="table table-bordered">
                         <thead>
@@ -84,7 +84,7 @@
                         <tbody id="statistics"></tbody>
                     </table>
                 </div>
-                <div role="tabpanel" class="tab-pane" id="game_tab">
+                <div role="tabpanel" class="tab-pane{% if game_id %} active{% endif %}" id="game_tab">
                     <h4>Game information</h4>
                     <button id="previous_game" class="btn btn-primary" disabled>
                         <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
@@ -93,7 +93,7 @@
                         <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
                     </button>
                     <span id="game_number">0</span> / <span id="total_games">0</span>
-                    <a href="{% url 'go9x9_empty' %}" class="btn btn-default">
+                    <a id="game_start" href="{% url 'go9x9_empty' %}" class="btn btn-default">
                         <span class="glyphicon glyphicon-step-backward" aria-hidden="true"></span>
                     </a>
                     <button id="game_previous" class="btn btn-default" disabled>
@@ -150,6 +150,10 @@
                     <h4>Tools</h4>
                     <a id="permalink" href="{% url 'go9x9' code %}">Permalink to position</a>
                     <div class="game-buttons">
+                        <button id="create_path" class="btn btn-default">Get permalink with history</button>
+                        <span id="path_link"></span>
+                    </div>
+                    <div class="game-buttons">
                         <p>Add the score of the position to the tree after two consecutive passes.</p>
                         <button id="resolve" class="btn btn-default" disabled="">Resolve position</button>
                     </div>
@@ -175,6 +179,17 @@
 {% endblock %}
 {% block extra_js %}
     <script type="text/javascript">
+        {% if path %}
+            window.path_undos = {{ undos }};
+            window.path_redos = {{ redos }};
+        {% else %}
+            window.path_undos = [];
+            window.path_redos = [];
+        {% endif %}
+        {% if game_id %}
+            window.original_game_id = {{ game_id }};
+        {% endif %}
+        window.empty_url = "{% url 'go9x9_empty' %}";
         window.link_url = "{% url 'go9x9' code %}";
         window.json_url = "{% url 'go9x9_json' code %}";
         window.end_json_url = "{% url 'go9x9_end_json' code %}";

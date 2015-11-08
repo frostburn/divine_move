@@ -7,6 +7,8 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils.html import escape
 
+from jsonfield import JSONField
+
 from go_board import Board, get_orientation
 from utils import *
 
@@ -142,8 +144,8 @@ class State(models.Model):
     """
     Concrete oriented game position.
     """
-    code = models.CharField(max_length=GO_9x9_CODE_LENGTH)
-    position = models.ForeignKey('Position', related_name='states')
+    code = models.CharField(db_index=True, max_length=GO_9x9_CODE_LENGTH)
+    position = models.ForeignKey('Position', db_index=True, related_name='states')
 
     def __unicode__(self):
         return u"State - %s" % self.code
@@ -153,9 +155,9 @@ class PositionInfo(models.Model):
     """
     A move that was played in a game.
     """
-    position = models.ForeignKey('Position', related_name='position_infos')
-    game_info = models.ForeignKey('GameInfo', related_name='position_infos')
-    move_number = models.SmallIntegerField()
+    position = models.ForeignKey('Position', db_index=True, related_name='position_infos')
+    game_info = models.ForeignKey('GameInfo', db_index=True, related_name='position_infos')
+    move_number = models.SmallIntegerField(db_index=True)
 
 
 def _rank_to_q(rank):
@@ -166,12 +168,15 @@ def _rank_to_q(rank):
     rank = rank.replace("pro", "p")
     rank = rank.replace("dan", "d")
     rank = rank.replace("kyu", "k")
-    if rank.endswith("k"):
-        return 1 - int(rank[:-1])
-    elif rank.endswith("d"):
-        return int(rank[:-1])
-    elif rank.endswith("p"):
-        return 1 + int(rank[:-1])
+    try:
+        if rank.endswith("k"):
+            return 1 - int(rank[:-1])
+        elif rank.endswith("d"):
+            return int(rank[:-1])
+        elif rank.endswith("p"):
+            return 1 + int(rank[:-1])
+    except ValueError:
+        return -2
     return -2
 
 
@@ -251,9 +256,9 @@ class GameInfo(models.Model):
 
     # Other fields
     hash = models.CharField(max_length=32)
-    quality = models.SmallIntegerField(default=0)
-    points = models.IntegerField(default=0)
-    created = models.DateTimeField(auto_now_add=True)
+    quality = models.SmallIntegerField(db_index=True, default=0)
+    points = models.IntegerField(db_index=True, default=0)
+    created = models.DateTimeField(db_index=True, auto_now_add=True)
 
     class Meta:
         ordering = ["-quality"]
@@ -296,15 +301,28 @@ class GameInfo(models.Model):
         return data
 
 
+def transition_sanity_check(source, target):
+    source = code_to_board(source)
+    target = code_to_board(target)
+    key = target.light_key()
+    for coord, child in source.children(False):
+        if child.light_key() == key:
+            return
+    raise ValueError("Insane source and target")
+
+
 class Transition(models.Model):
     """
     Transition between positions.
     """
-    source = models.ForeignKey('Position', related_name='transitions')
-    target = models.ForeignKey('Position', related_name='parent_transitions')
-    times_played = models.IntegerField(default=0)
+    source = models.ForeignKey('Position', db_index=True, related_name='transitions')
+    target = models.ForeignKey('Position', db_index=True, related_name='parent_transitions')
+    times_played = models.IntegerField(db_index=True, default=0)
     player_wins = models.IntegerField(default=0)
     opponent_wins = models.IntegerField(default=0)
+
+    class Meta:
+        index_together = ["source", "target"]
 
     def to_json(self, total_continuations=None, user_kwargs=None):
         if total_continuations is None:
@@ -423,3 +441,12 @@ class PositionMessage(BaseMessage):
 
 class TransitionMessage(BaseMessage):
     transition = models.ForeignKey('Transition', related_name='messages')
+
+
+class Path(models.Model):
+    """
+    A permalinkable path of positions.
+    """
+    code = models.CharField(max_length=GO_9x9_CODE_LENGTH)
+    undos = JSONField()
+    redos = JSONField()

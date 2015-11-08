@@ -1,7 +1,8 @@
 (function(){
     var move_num = 0;
 
-    var undos = [];
+    var undos = window.path_undos.slice();
+    var redos = window.path_redos.slice();
 
     var coord_map = {
         "A": 0,
@@ -224,6 +225,7 @@
         $game_next = $("#game_next");
         $game_previous = $("#game_previous");
         $game_end = $("#game_end");
+        $game_start = $("#game_start");
         $game_info.empty();
 
         if (data){
@@ -263,6 +265,7 @@
                 game_previous_data = null;
             }
             $game_end.prop("disabled", false);
+            $game_start.attr("href", window.empty_url + "?game_id=" + game_id);
         }
         else {
             game_id = null;
@@ -330,6 +333,20 @@
         var $next = $("#next");
         var next_found = false;
         $next.off("click");
+        if (redos.length){
+            $next.click(function(event){
+                event.preventDefault();
+                if ($(this).prop("disabled")){
+                    return;
+                }
+                undos.push(current_data.endgame);
+                $status.empty();
+                move_num += 1;
+                next_endgame({"endgame": redos.pop()});
+                $(".vote").attr("disabled", false);
+            });
+            next_found = true;
+        }
         $pass.off("click");
         $pass.prop("disabled", true);
         var label_index = 0;
@@ -356,6 +373,7 @@
                 if ($(this).prop("disabled")){
                     return;
                 }
+                redos = [];
                 undos.push(data.endgame);
                 $status.empty();
                 move_num += 1;
@@ -666,12 +684,22 @@
     var current_data;
     $(document).ready(function(){
         $(document).keydown(function(event){
+            if ($("#comment_box").is(":focus")){
+                return;
+            }
+            // Arrow keys
             if (event.keyCode == 37 || event.keyCode == 39){
                 var prev;
                 var next;
                 if ($("#game_tab_label").hasClass("active")){
                     prev = $("#game_previous");
+                    if (prev.prop("disabled")){
+                        prev = $("#undo");
+                    }
                     next = $("#game_next");
+                    if (next.prop("disabled")){
+                        next = $("#next");
+                    }
                 }
                 else {
                     prev = $("#undo");
@@ -684,10 +712,15 @@
                     next.click();
                 }
             }
+            // Space
+            if (event.keyCode == 32){
+                $("#pass").click();
+            }
         });
         $("#undo").click(function(){
             if (undos.length){
                 move_num -= 1;
+                redos.push(current_data.endgame);
                 next_endgame({"endgame": undos.pop()});
             }
         });
@@ -745,6 +778,7 @@
                     if (data.length){
                         move_num += data.length;
                         undos.push(current_data.endgame);
+                        redos = [];
                         $.merge(undos, data.slice(0, data.length - 1));
                         // Clear the board. Color changing objects are a pain.
                         $.each(board_objects, function(coord, object){
@@ -807,6 +841,7 @@
                 return;
             }
             undos.push(current_data.endgame);
+            redos = [];
             $("#status").empty();
             move_num += 1;
             next_endgame(game_next_data, game_id);
@@ -817,6 +852,7 @@
                 return;
             }
             undos = [];
+            redos = []
             move_num -= 1;
             next_endgame(game_previous_data, game_id);
         });
@@ -859,8 +895,35 @@
                 "json"
             );
         });
+        $("#create_path").click(function(){
+            var data = {
+                "path": true,
+                "state": current_data.endgame,
+                "undos": undos,
+                "redos": redos,
+            };
+            $.post(
+                window.json_url,
+                JSON.stringify(data),
+                function(data) {
+                    $path_link = $("#path_link");
+                    $path_link.empty();
+                    $a = $("<a>");
+                    var href = window.empty_url + "?path_id=" + data.path_id;
+                    if (!black_to_play()){
+                        href += "&player=white";
+                    }
+                    $a.attr("href", href);
+                    $a.text("Link");
+                    $path_link.append($a);
+                },
+                "json"
+            );
+        });
         var url = window.json_url;
-        // TODO: Game ID.
+        if (window.original_game_id){
+            url += "?game_id=" + window.original_game_id
+        }
         $.ajax({
             url: url,
             dataType: "json",
