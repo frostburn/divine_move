@@ -67,7 +67,7 @@
     }
 
     function white_stone(draw, x, y){
-        var stone = draw.circle(0.9 * scale).center(x, y).fill("#eee");
+        var stone = draw.circle(0.9 * scale).center(x, y).fill("#eee").stroke({width: 1.3, color: "#111"});
         return stone;
     }
 
@@ -137,10 +137,10 @@
                 var coord = x + y;
                 var c = draw_coords(coord);
                 var stone = black_stone(draw, c[0], c[1]);
-                stone.attr({"fill-opacity": 0.0});
+                stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
                 hover_blacks[coord] = stone;
                 stone = white_stone(draw, c[0], c[1]);
-                stone.attr({"fill-opacity": 0.0});
+                stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
                 hover_whites[coord] = stone;
                 var trigger = hover_draw.rect(scale, scale).center(c[0], c[1]);
                 trigger.attr({"fill-opacity": 0.0});
@@ -360,10 +360,10 @@
         });
 
         $.each(hover_players, function(_, stone){
-            stone.attr({"fill-opacity": 0.0});
+            stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
         });
         $.each(hover_opponents, function(_, stone){
-            stone.attr({"fill-opacity": 0.0});
+            stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
         });
 
 
@@ -484,10 +484,10 @@
             var trigger = hover_triggers[coord];
             var stone = hover_players[coord];
             trigger.mouseover(function(){
-                stone.attr({"fill-opacity": 0.5});
+                stone.attr({"fill-opacity": 0.5, "stroke-opacity": 0.5});
             });
             trigger.mouseout(function(){
-                stone.attr({"fill-opacity": 0.0});
+                stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
             });
             trigger.click(make_move);
             var c = draw_coords(coord);
