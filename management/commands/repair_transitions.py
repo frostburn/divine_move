@@ -10,7 +10,7 @@ class Command(BaseCommand):
         pass
 
     def handle(self, *args, **options):
-        total = len(Position.objects.all())
+        total = Position.objects.all().count()
         for i, position in enumerate(Position.objects.all()):
             if i % 100 == 0:
                 self.stdout.write("%d / %d" % (i, total))
