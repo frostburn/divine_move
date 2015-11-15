@@ -2,6 +2,7 @@
 
 
 ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+HUMAN_ALPHA = "ABCDEFGHJKLMNOPQRSTUVWXYZ"
 
 
 def popcount(b):
@@ -413,7 +414,7 @@ class Board(object):
             white = self.player
         r = u""
         for y in xrange(self.size):
-            r += u"\x1b[0;30;43m "  # Yellow bg
+            r += u"\x1b[0;30;43m%s" % ((self.size - y) % 10)  # Yellow bg
             for x in xrange(self.size):
                 m = 1 << (x + y * self.v_shift)
                 if black & m:
@@ -425,6 +426,10 @@ class Board(object):
                 else:
                     r += u"  ";
             r += u"\x1b[0m\n"
+        r += u" "
+        for x in xrange(self.size):
+            r += HUMAN_ALPHA[x] + u" "
+        r += u"\n"
         if self.black_to_play:
             r += u"Black to play"
         else:
