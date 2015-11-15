@@ -260,6 +260,9 @@ class GameInfo(models.Model):
     points = models.IntegerField(db_index=True, default=0)
     created = models.DateTimeField(db_index=True, auto_now_add=True)
 
+    # Contributes to stats or not
+    is_serious = models.BooleanField(default=True)
+
     class Meta:
         ordering = ["-quality"]
 

@@ -606,7 +606,7 @@ def go9x9_add_sgf(request):
     data = json.loads(request.body)
     if data["password"] != settings.API_PASSWORD:
         raise ValueError("Too much hacking")
-    process_sgf(data["sgf"])
+    process_sgf(data["sgf"], data.get("serious", True))
     return HttpResponse("OK")
 
 

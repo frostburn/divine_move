@@ -25,23 +25,23 @@ field_res = {
     "white_player": white_player_re,
     "white_rank": white_rank_re,
     "result": result_re,
-    "date": re.compile(r'\WDT\[(.+?)\]'),
-    "game_name": re.compile(r'\WGN\[(.+?)\]'),
-    "event": re.compile(r'\WEV\[(.+?)\]'),
-    "round": re.compile(r'\WRO\[(.+?)\]'),
-    "handicap": re.compile(r'\WHA\[(\d+?)\]'),
-    "komi": re.compile(r'\WKM\[(.+?)\]'),
-    "place": re.compile(r'\WPC\[(.+?)\]'),
-    "rules": re.compile(r'\WRU\[(.+?)\]'),
-    "time": re.compile(r'\WTM\[(\d+?)\]'),
-    "overtime": re.compile(r'\WOT\[(.+?)\]'),
+    "date": re.compile(r'\WDT\[(.*?)\]'),
+    "game_name": re.compile(r'\WGN\[(.*?)\]'),
+    "event": re.compile(r'\WEV\[(.*?)\]'),
+    "round": re.compile(r'\WRO\[(.*?)\]'),
+    "handicap": re.compile(r'\WHA\[(\d*?)\]'),
+    "komi": re.compile(r'\WKM\[(.*?)\]'),
+    "place": re.compile(r'\WPC\[(.*?)\]'),
+    "rules": re.compile(r'\WRU\[(.*?)\]'),
+    "time": re.compile(r'\WTM\[(\d*?)\]'),
+    "overtime": re.compile(r'\WOT\[(.*?)\]'),
 }
 
 
 alpha = "abcdefghijklmnopqrstuvwxyz"
 
 
-def process_sgf(sgf):
+def process_sgf(sgf, serious=True):
     if add_white_re.search(sgf):
         raise NotImplementedError("Add white")
     size = int(size_re.search(sgf).group(1))
@@ -96,6 +96,7 @@ def process_sgf(sgf):
         raise ValueError("Empty game")
 
     info["hash"] = hasher.hexdigest()
+    info["is_serious"] = serious
     if GameInfo.objects.filter(**info).exists():
         return
         raise ValueError("Game already in DB")
@@ -111,12 +112,13 @@ def process_sgf(sgf):
         source = target
         target, created = get_or_create_position(target_code)
         transition, created = Transition.objects.get_or_create(source=source, target=target)
-        transition.times_played += 1
-        if sign > 0:
-            transition.player_wins += 1
-        elif sign < 0:
-            transition.opponent_wins += 1
-        transition.save()
+        if serious:
+            transition.times_played += 1
+            if sign > 0:
+                transition.player_wins += 1
+            elif sign < 0:
+                transition.opponent_wins += 1
+            transition.save()
         PositionInfo.objects.create(position=target, game_info=game_info, move_number=move_number)
         sign = -sign
 
@@ -126,7 +128,7 @@ def remove_game(game_info):
     source = None
     for position_info in game_info.position_infos.all().order_by('move_number'):
         target = position_info.position
-        if source is not None:
+        if source is not None and game_info.is_serious:
             transition = Transition.objects.get(source=source, target=target)
             transition.times_played -= 1
             if sign < 0:
