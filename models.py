@@ -366,6 +366,41 @@ class Transition(models.Model):
         result["color"] = color
         return result
 
+    def quality(self):
+        from math import tanh
+        q = 0.2  # Bonus for being in the DB.
+        # Votes
+        v = 0
+        total_votes = 0
+        for vote in self.votes.all():
+            if vote.type == "ideal":
+                v += 0.8
+                total_votes += 1
+            elif vote.type == "good":
+                v += 0.4
+                total_votes += 1
+            elif vote.type == "bad":
+                v -= 1
+                total_votes += 1
+        if total_votes:
+            q += v / total_votes
+        max_q = float("-inf")
+        win = 0
+        total_games = 0
+        for position_info in self.target.position_infos.all():
+            total_games += 1
+            game_info = position_info.game_info
+            if position_info.move_number % 2:
+                max_q = max(max_q, _rank_to_q(game_info.white_rank))
+                win -= game_info.result_sign()
+            else:
+                max_q = max(max_q, _rank_to_q(game_info.black_rank))
+                win += game_info.result_sign()
+        if total_games:
+            q += 0.7 * tanh(0.2 * (max_q + 5))
+            q += 0.2 * win / total_games
+        return q
+
 
 def create_position(code):
     board = Board.from_int(code_to_int(code), 9)
