@@ -75,6 +75,9 @@ class Position(models.Model):
     heuristic_value = models.FloatField(null=True)
     low_score = models.SmallIntegerField(null=True)
     high_score = models.SmallIntegerField(null=True)
+    player_wins = models.IntegerField(default=0)
+    opponent_wins = models.IntegerField(default=0)
+    draws = models.IntegerField(default=0)
 
     def get_bins(self):
         bins = bytes(self.bins)
@@ -137,6 +140,9 @@ class Position(models.Model):
             "low_score": self.low_score,
             "high_score": self.high_score,
             "messages": self.get_messages(state, black_to_play, user, ip_address),
+            "player_wins": self.player_wins,
+            "opponent_wins": self.opponent_wins,
+            "draws": self.draws,
         }
 
 
@@ -321,8 +327,6 @@ class Transition(models.Model):
     source = models.ForeignKey('Position', db_index=True, related_name='transitions')
     target = models.ForeignKey('Position', db_index=True, related_name='parent_transitions')
     times_played = models.IntegerField(db_index=True, default=0)
-    player_wins = models.IntegerField(default=0)
-    opponent_wins = models.IntegerField(default=0)
 
     class Meta:
         index_together = ["source", "target"]
@@ -334,8 +338,6 @@ class Transition(models.Model):
         result = {
             "times_played": self.times_played,
             "likelyhood": likelyhood,
-            "player_wins": self.player_wins,
-            "opponent_wins": self.opponent_wins,
             "ideal": 0,
             "good": 0,
             "trick": 0,

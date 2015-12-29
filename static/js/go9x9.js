@@ -1,4 +1,8 @@
 (function(){
+    // Only synchronous requests make sense when updating the board, but they're getting deprecated.
+    // Hack a lock instead.
+    var ajax_locked = false;
+
     var move_num = 0;
 
     var undos = window.path_undos.slice();
@@ -174,6 +178,32 @@
     }
 
     function set_score(data){
+        var black_wins;
+        var white_wins;
+        if (black_to_play()){
+            black_wins = data.player_wins;
+            white_wins = data.opponent_wins;
+        }
+        else {
+            black_wins = data.opponent_wins;
+            white_wins = data.player_wins;
+        }
+        var draws = data.draws;
+        if (black_wins === undefined){
+            black_wins = 0;
+            white_wins = 0;
+            draws = 0;
+        }
+        var total = black_wins + white_wins + draws;
+        if (total == 0){
+            total = 1;
+        }
+        var chance = 100 * black_wins / total;
+        $("#black_wins").text(chance.toFixed(1) + "% (" + black_wins + ")");
+        chance = 100 * white_wins / total;
+        $("#white_wins").text(chance.toFixed(1) + "% (" + white_wins + ")");
+        chance = 100 * draws / total;
+        $("#draws").text(chance.toFixed(1) + "% (" + draws + ")");
         var $score = $("#score");
         if ("low_score" in data && data.low_score !== null){
             if (data.low_score == data.high_score){
@@ -336,6 +366,10 @@
         if (redos.length){
             $next.click(function(event){
                 event.preventDefault();
+                if (ajax_locked){
+                    return;
+                }
+                ajax_locked = true;
                 if ($(this).prop("disabled")){
                     return;
                 }
@@ -370,6 +404,10 @@
         $(moves).each(function(index, move_data){
             var make_move = function(event){
                 event.preventDefault();
+                if (ajax_locked){
+                    return;
+                }
+                ajax_locked = true;
                 if ($(this).prop("disabled")){
                     return;
                 }
@@ -415,6 +453,7 @@
                 $td.text(move_data.label);
                 $tr.append($td);
                 var black_wins;
+                var white_wins;
                 if (black_to_play()){
                     black_wins = move_data.player_wins;
                     white_wins = move_data.opponent_wins;
@@ -423,21 +462,21 @@
                     black_wins = move_data.opponent_wins;
                     white_wins = move_data.player_wins;
                 }
-                var times_played = move_data.times_played;
-                if (times_played == 0){
-                    times_played = 1;
+                var draws = move_data.draws;
+                var total = black_wins + white_wins + draws;
+                if (total == 0){
+                    total = 1;
                 }
                 $td = $("<td>");
-                var chance = 100 * black_wins / times_played;
+                var chance = 100 * black_wins / total;
                 $td.text(chance.toFixed(1) + "% (" + black_wins + ")");
                 $tr.append($td);
                 $td = $("<td>");
-                chance = 100 * white_wins / times_played;
+                chance = 100 * white_wins / total;
                 $td.text(chance.toFixed(1) + "% (" + white_wins + ")");
                 $tr.append($td);
                 $td = $("<td>");
-                var draws = move_data.times_played - black_wins - white_wins;
-                chance = 100 * draws / times_played;
+                chance = 100 * draws / total;
                 $td.text(chance.toFixed(1) + "% (" + draws + ")");
                 $tr.append($td);
                 $td = $("<td>");
@@ -575,19 +614,18 @@
         $vote_buttons.attr("disabled", true);
         var $resolve = $("#resolve");
         $resolve.prop("disabled", true);
-        //console.log(move_data);
         $.ajax({
             url: url,
             dataType: "json",
-            async: false,
+            async: true,
             success: function(data){
-                //console.log(data);
                 if (data.status != "OK"){
                     return;
                 }
                 current_data = data;
                 set_position(data);
                 set_vote_labels(move_data);
+                ajax_locked = false;
             }
         });
     }
@@ -733,6 +771,10 @@
             }
         });
         $("#undo").click(function(){
+            if (ajax_locked){
+                return;
+            }
+            ajax_locked = true;
             if (undos.length){
                 move_num -= 1;
                 redos.push(current_data.endgame);
@@ -788,7 +830,7 @@
             $.ajax({
                 url: url,
                 dataType: "json",
-                async: false,
+                async: true,
                 success: function(data){
                     if (data.length){
                         move_num += data.length;
@@ -806,9 +848,17 @@
             });
         }
         $("#end").click(function(){
+            if (ajax_locked){
+                return;
+            }
+            ajax_locked = true;
             go_to_end();
         });
         $("#game_end").click(function(){
+            if (ajax_locked){
+                return;
+            }
+            ajax_locked = true;
             go_to_end(game_id);
         });
         function change_game(){
@@ -852,6 +902,10 @@
         }
         $("#game_next").click(function(event){
             event.preventDefault();
+            if (ajax_locked){
+                return;
+            }
+            ajax_locked = true;
             if ($(this).prop("disabled")){
                 return;
             }
@@ -863,6 +917,10 @@
             $(".vote").attr("disabled", false);
         });
         $("#game_previous").click(function(){
+            if (ajax_locked){
+                return;
+            }
+            ajax_locked = true;
             if ($(this).prop("disabled")){
                 return;
             }

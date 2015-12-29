@@ -295,6 +295,10 @@ class Go9x9JSONView(View):
                         # transition_info["heuristic_value"] = target.heuristic_value  # Not implemented yet
                         transition_info["low_score"] = target.low_score
                         transition_info["high_score"] = target.high_score
+                        # Player and opponent intentionally swapped because we're talking about a transition to the target.
+                        transition_info["player_wins"] = target.opponent_wins
+                        transition_info["opponent_wins"] = target.player_wins
+                        transition_info["draws"] = target.draws
                         if transition.times_played or target.low_score is not None or target.position_infos.all().exists():
                             if move == "pass":
                                 transition_info["label"] = "pass"

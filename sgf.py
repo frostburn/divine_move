@@ -106,24 +106,35 @@ def process_sgf(sgf, serious=True):
 
     target_code, _, move_number = moves[0]
     target, created = get_or_create_position(target_code)
+    if sign > 0:
+        target.player_wins += 1
+    elif sign < 0:
+        target.opponent_wins += 1
+    else:
+        target.draws += 1
+    target.save()
     PositionInfo.objects.create(position=target, game_info=game_info, move_number=0)
 
     for source_code, target_code, move_number in moves:
+        sign = -sign
         source = target
         target, created = get_or_create_position(target_code)
         transition, created = Transition.objects.get_or_create(source=source, target=target)
         if serious:
             transition.times_played += 1
             if sign > 0:
-                transition.player_wins += 1
+                target.player_wins += 1
             elif sign < 0:
-                transition.opponent_wins += 1
+                target.opponent_wins += 1
+            else:
+                target.draws += 1
+            target.save()
             transition.save()
         PositionInfo.objects.create(position=target, game_info=game_info, move_number=move_number)
-        sign = -sign
 
 
 def remove_game(game_info):
+    raise NotImplementedError("Developer too lazy")
     sign = game_info.result_sign()
     source = None
     for position_info in game_info.position_infos.all().order_by('move_number'):
