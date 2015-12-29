@@ -16,11 +16,11 @@ class Command(BaseCommand):
         max_page = 1 + total // PAGE_LEN
         page = 0
         while True:
-            self.stdout.write("Page %d / %d" % (page, max_page))
             qs = Position.objects.all()[page * PAGE_LEN:(page + 1) * PAGE_LEN]
-            page += 1
             if not qs:
                 break
+            self.stdout.write("Page %d / %d" % (page + 1, max_page))
+            page += 1
             for position in qs:
                 board = code_to_board(position.states.all().first().code)
                 for coord, child in board.children(False):

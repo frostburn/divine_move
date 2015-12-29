@@ -14,15 +14,20 @@ from utils import *
 
 
 GO_9x9_CODE_LENGTH = 23
-GO_9x9_BIN_COUNT = 9 * 9 * 2 + 1
+GO_13x13_CODE_LENGTH = 46
+
+CODE_LENGTH = GO_9x9_CODE_LENGTH
+BOARD_SIZE = 9
+
+BIN_COUNt = 1 + 2 * BOARD_SIZE ** 2
 
 
 def board_to_code(board):
-    return int_to_code(board.to_int(), GO_9x9_CODE_LENGTH)
+    return int_to_code(board.to_int(), CODE_LENGTH)
 
 
 def code_to_board(code):
-    return Board.from_int(code_to_int(code), 9)
+    return Board.from_int(code_to_int(code), BOARD_SIZE)
 
 
 player_replacements = {
@@ -37,7 +42,7 @@ def swap_players(m):
     return player_replacements[re.escape(m.group(0))]
 
 
-X_MAP = "ABCDEFGHJ"
+X_MAP = "ABCDEFGHJKLMNOPQRSTUVWXYZ"
 coords = []
 bad_coord_sub = {}
 coord_subs = {
@@ -49,20 +54,20 @@ coord_subs = {
     "mirror_hv": {},
     "mirror_v": {},
 }
-for y in xrange(9):
-    for x in xrange(9):
-        coord = "%s%d" % (X_MAP[x], 9 - y)
+for y in xrange(BOARD_SIZE):
+    for x in xrange(BOARD_SIZE):
+        coord = "%s%d" % (X_MAP[x], BOARD_SIZE - y)
         coords.append(coord)
-        bad_coord = "%d%s" % (9 - y, X_MAP[x])
+        bad_coord = "%d%s" % (BOARD_SIZE - y, X_MAP[x])
         bad_coord_sub[bad_coord] = coord
         bad_coord_sub[coord.lower()] = coord
         bad_coord_sub[bad_coord.lower()] = coord
-        coord_subs["mirror_d"][coord] = "%s%d" % (X_MAP[8 - y], x + 1)
+        coord_subs["mirror_d"][coord] = "%s%d" % (X_MAP[BOARD_SIZE - 1 - y], x + 1)
         coord_subs["mirror_dh"][coord] = "%s%d" % (X_MAP[y], x + 1)
-        coord_subs["mirror_dhv"][coord] = "%s%d" % (X_MAP[y], 9 - x)
-        coord_subs["mirror_dv"][coord] = "%s%d" % (X_MAP[8 - y], 9 - x)
-        coord_subs["mirror_h"][coord] = "%s%d" % (X_MAP[8 - x], 9 - y)
-        coord_subs["mirror_hv"][coord] = "%s%d" % (X_MAP[8 - x], y + 1)
+        coord_subs["mirror_dhv"][coord] = "%s%d" % (X_MAP[y], BOARD_SIZE - x)
+        coord_subs["mirror_dv"][coord] = "%s%d" % (X_MAP[BOARD_SIZE - 1 - y], BOARD_SIZE - x)
+        coord_subs["mirror_h"][coord] = "%s%d" % (X_MAP[BOARD_SIZE - 1 - x], BOARD_SIZE - y)
+        coord_subs["mirror_hv"][coord] = "%s%d" % (X_MAP[BOARD_SIZE - 1 - x], y + 1)
         coord_subs["mirror_v"][coord] = "%s%d" % (X_MAP[x], y + 1)
 coord_re = re.compile(ur"|".join(ur"\b" + coord + ur"\b" for coord in coords))
 bad_coord_re = re.compile(ur"|".join(ur"\b" + coord + ur"\b" for coord in bad_coord_sub.keys()))
@@ -82,14 +87,14 @@ class Position(models.Model):
     def get_bins(self):
         bins = bytes(self.bins)
         if not bins:
-            return [0] * GO_9x9_BIN_COUNT
+            return [0] * BIN_COUNT
         else:
             if bytes is str:
                 bins = [ord(c) for c in bins]
-            return [bins[2 * i] + 256 * bins[2 * i + 1] for i in xrange(GO_9x9_BIN_COUNT)]
+            return [bins[2 * i] + 256 * bins[2 * i + 1] for i in xrange(BIN_COUNT)]
 
     def set_bins(self, bins):
-        if len(bins) != GO_9x9_BIN_COUNT:
+        if len(bins) != BIN_COUNT:
             raise ValueError("Invalid bin count")
         if any(b > 65535 for b in bins):
             raise OverflowError("Bin value too large")
@@ -150,7 +155,7 @@ class State(models.Model):
     """
     Concrete oriented game position.
     """
-    code = models.CharField(db_index=True, max_length=GO_9x9_CODE_LENGTH)
+    code = models.CharField(db_index=True, max_length=CODE_LENGTH)
     position = models.ForeignKey('Position', db_index=True, related_name='states')
 
     def __unicode__(self):
@@ -405,10 +410,10 @@ class Transition(models.Model):
 
 
 def create_position(code):
-    board = Board.from_int(code_to_int(code), 9)
+    board = Board.from_int(code_to_int(code), BOARD_SIZE)
     codes = [code]
     for sister in board.sisters():
-        codes.append(int_to_code(sister.to_int(), GO_9x9_CODE_LENGTH))
+        codes.append(int_to_code(sister.to_int(), CODE_LENGTH))
     position = Position.objects.create()
     for code in codes:
         State.objects.create(code=code, position=position)
@@ -487,6 +492,6 @@ class Path(models.Model):
     """
     A permalinkable path of positions.
     """
-    code = models.CharField(max_length=GO_9x9_CODE_LENGTH)
+    code = models.CharField(max_length=CODE_LENGTH)
     undos = JSONField()
     redos = JSONField()

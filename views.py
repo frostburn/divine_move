@@ -219,7 +219,10 @@ class Go9x9View(TemplateView):
     template_name = "go9x9.html"
     def get_context_data(self, *args, **kwargs):
         context = super(Go9x9View, self).get_context_data(*args, **kwargs)
-        context.setdefault("code", "h1000000000000000000000")
+        if BOARD_SIZE == 9:
+            context.setdefault("code", "h1000000000000000000000")
+        else:
+            raise NotImplementedError("Board size not supported")
         path_id = self.request.GET.get("path_id")
         if path_id is not None:
             path = Path.objects.get(pk=path_id)
@@ -245,7 +248,8 @@ def get_user_activity_kwargs(request):
         return {"user": request.user}
 
 
-LABELS = list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") + [str(i) for i in range(1, 30)] + ["pass"]
+LABELS = list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+LABELS += [str(i) for i in range(1, 1 + BOARD_SIZE ** 2 - len(LABELS))] + ["pass"]
 
 
 class Go9x9JSONView(View):
@@ -314,7 +318,7 @@ class Go9x9JSONView(View):
         for coord, move_data in moves.items():
             move_data["coord"] = coord
             ms.append(move_data)
-        ms.sort(key=lambda x: LABELS.index(x.get("label", "29")))  # primary sort
+        ms.sort(key=lambda x: LABELS.index(x.get("label", LABELS[-2])))  # primary sort
         result["moves"] = ms
         result["status"] = "OK"
         return HttpResponse(json.dumps(result))
@@ -425,7 +429,7 @@ def check_history_sanity(history):
     assert isinstance(history, list)
     for code in history:
         assert isinstance(code, basestring)
-        assert len(code) == GO_9x9_CODE_LENGTH
+        assert len(code) == CODE_LENGTH
         assert all(c in chars64 for c in code)
 
 

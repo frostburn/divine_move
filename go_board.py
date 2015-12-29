@@ -47,44 +47,30 @@ def rotate(b, v_shift):
 
 _h0 = 0
 _h1 = 0
-_h2 = 0
-_h3 = 0
 _v0 = 0
 _v1 = 0
-_v2 = 0
-_v3 = 0
 for y in xrange(9):
-    _h0 |= 1 << (4 + 10 * y)
-    _v0 |= 1 << (y + 40)
-    for x in xrange(4):
-        if x % 2 == 0:
+    for x in xrange(9):
+        if x % 3 == 0:
+            _h0 |= 1 << (x + 10 * y)
+            _v0 |= 1 << (y + 10 * x)
+        if (x // 3) % 3 == 0:
             _h1 |= 1 << (x + 10 * y)
-            _h1 |= 1 << (x + 5 + 10 * y)
             _v1 |= 1 << (y + 10 * x)
-            _v1 |= 1 << (y + 10 * x + 50)
-        if (x // 2) % 2 == 0:
-            _h2 |= 1 << (x + 10 * y)
-            _h2 |= 1 << (x + 5 + 10 * y)
-            _v2 |= 1 << (y + 10 * x)
-            _v2 |= 1 << (y + 10 * x + 50)
-        _h3 |= 1 << (x + 10 * y)
-        _v3 |= 1 << (y + 10 * x)
+_h0m = _h0 << 1
+_v0m = _v0 << 10
+_h1m = _h1 << 3
+_v1m = _v1 << 30
 
 
 def mirror_h9(b):
-    m = b & _h0
-    b = ((b >> 1) & _h1) | ((b & _h1) << 1)
-    b = ((b >> 2) & _h2) | ((b & _h2) << 2)
-    b = ((b >> 5) & _h3) | ((b & _h3) << 5)
-    return m | b
+    b = ((b >> 2) & _h0) | ((b & _h0) << 2) | (b & _h0m)
+    return ((b >> 6) & _h1) | ((b & _h1) << 6) | (b & _h1m)
 
 
 def mirror_v9(b):
-    m = b & _v0
-    b = ((b >> 10) & _v1) | ((b & _v1) << 10)
-    b = ((b >> 20) & _v2) | ((b & _v2) << 20)
-    b = (b >> 50) | ((b & _v3) << 50)
-    return m | b
+    b = ((b >> 20) & _v0) | ((b & _v0) << 20) | (b & _v0m)
+    return (b >> 60) | ((b & _v1) << 60) | (b & _v1m)
 
 
 _d = [0] * 17
@@ -116,6 +102,81 @@ for y in xrange(9):
         ko_v9[ko] = mirror_v9(ko)
         ko_h9[ko] = mirror_h9(ko)
         ko_d9[ko] = mirror_d9(ko)
+
+
+_ht0 = 0
+_ht1 = 0
+_ht2 = 0
+_ht3 = 0
+_vt0 = 0
+_vt1 = 0
+_vt2 = 0
+_vt3 = 0
+for y in xrange(13):
+    _ht0 |= 1 << (6 + 14 * y)
+    _vt0 |= 1 << (y + 84)
+    for x in xrange(6):
+        if x % 3 == 0:
+            _ht1 |= 1 << (x + 14 * y)
+            _ht1 |= 1 << (x + 7 + 14 * y)
+            _vt1 |= 1 << (y + 14 * x)
+            _vt1 |= 1 << (y + 14 * x + 98)
+        if (x // 3) % 2 == 0:
+            _ht2 |= 1 << (x + 14 * y)
+            _ht2 |= 1 << (x + 7 + 14 * y)
+            _vt2 |= 1 << (y + 14 * x)
+            _vt2 |= 1 << (y + 14 * x + 98)
+        _ht3 |= 1 << (x + 14 * y)
+        _vt3 |= 1 << (y + 14 * x)
+_ht1m = _ht1 << 1
+_vt1m = _vt1 << 14
+
+
+def mirror_h13(b):
+    m = b & _ht0
+    b = ((b >> 2) & _ht1) | ((b & _ht1) << 2) | (b & _ht1m)
+    b = ((b >> 3) & _ht2) | ((b & _ht2) << 3)
+    b = ((b >> 7) & _ht3) | ((b & _ht3) << 7)
+    return m | b
+
+
+def mirror_v13(b):
+    m = b & _vt0
+    b = ((b >> 28) & _vt1) | ((b & _vt1) << 28) | (b & _vt1m)
+    b = ((b >> 42) & _vt2) | ((b & _vt2) << 42)
+    b = (b >> 98) | ((b & _vt3) << 98)
+    return m | b
+
+
+_dt = [0] * 25
+for y in xrange(13):
+    for x in xrange(13):
+        p = 1 << (x + 14 * y)
+        z = x + y
+        for i in xrange(25):
+            if z == i:
+                _dt[i] |= p
+
+
+def mirror_d13(b):
+    r = b & _dt[12]
+    for i in range(12):
+        j = 12 - i
+        r |= (b & _dt[i]) << (15 * j)
+        r |= (b & _dt[24 - i]) >> (15 * j)
+    return r
+
+
+ko_v13 = {0: 0}
+ko_h13 = {0: 0}
+ko_d13 = {0: 0}
+
+for y in xrange(13):
+    for x in xrange(13):
+        ko = 1 << (x + 14 * y)
+        ko_v13[ko] = mirror_v13(ko)
+        ko_h13[ko] = mirror_h13(ko)
+        ko_d13[ko] = mirror_d13(ko)
 
 
 def flood(source, target, v_shift):
@@ -155,7 +216,7 @@ def liberties(b, e, v_shift):
 
 class Board(object):
     def __init__(self, size, copying=False):
-        assert size == 9
+        assert size == 9 or size == 13
         self.size = size
         self.v_shift = size + 1
         self.playing_area = 0
@@ -249,19 +310,34 @@ class Board(object):
             self.passes += 1
 
     def mirror_v(self):
-        self.player = mirror_v9(self.player)
-        self.opponent = mirror_v9(self.opponent)
-        self.ko = ko_v9[self.ko]
+        if self.size == 9:
+            self.player = mirror_v9(self.player)
+            self.opponent = mirror_v9(self.opponent)
+            self.ko = ko_v9[self.ko]
+        elif self.size == 13:
+            self.player = mirror_v13(self.player)
+            self.opponent = mirror_v13(self.opponent)
+            self.ko = ko_v13[self.ko]
 
     def mirror_h(self):
-        self.player = mirror_h9(self.player)
-        self.opponent = mirror_h9(self.opponent)
-        self.ko = ko_h9[self.ko]
+        if self.size == 9:
+            self.player = mirror_h9(self.player)
+            self.opponent = mirror_h9(self.opponent)
+            self.ko = ko_h9[self.ko]
+        elif self.size == 13:
+            self.player = mirror_h13(self.player)
+            self.opponent = mirror_h13(self.opponent)
+            self.ko = ko_v13[self.ko]
 
     def mirror_d(self):
-        self.player = mirror_d9(self.player)
-        self.opponent = mirror_d9(self.opponent)
-        self.ko = ko_d9[self.ko]
+        if self.size == 9:
+            self.player = mirror_d9(self.player)
+            self.opponent = mirror_d9(self.opponent)
+            self.ko = ko_d9[self.ko]
+        elif self.size == 13:
+            self.player = mirror_d13(self.player)
+            self.opponent = mirror_d13(self.opponent)
+            self.ko = ko_d13[self.ko]
 
     def copy(self):
         c = Board(self.size, copying=True)
