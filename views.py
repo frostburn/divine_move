@@ -221,6 +221,8 @@ class Go9x9View(TemplateView):
         context = super(Go9x9View, self).get_context_data(*args, **kwargs)
         if BOARD_SIZE == 9:
             context.setdefault("code", "h1000000000000000000000")
+        elif BOARD_SIZE == 13:
+            context.setdefault("code", "F200000000000000000000000000000000000000000000")
         else:
             raise NotImplementedError("Board size not supported")
         path_id = self.request.GET.get("path_id")

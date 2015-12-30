@@ -64,7 +64,7 @@
 
     var board_color = "#db7";
 
-    var scale = 40;
+    var scale = 33;
     function draw_coords(coord){
         return [scale * coord_map[coord[0]], scale * parseInt(coord.slice(1))];
     }
@@ -101,35 +101,35 @@
 
     function render_playing_area(draw)
     {
-        var max_x = 8 * scale;
-        var max_y = 8 * scale;
+        var max_x = 12 * scale;
+        var max_y = 12 * scale;
         board = draw.rect(max_x + 3 * scale, max_y + 3 * scale).move(-1.5 * scale, -1.5 * scale).fill(board_color);
         var x = 0;
-        $(["A", "B", "C", "D", "E", "F", "G", "H", "J"]).each(function(_, letter){
+        $(["A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N"]).each(function(_, letter){
             draw.text(letter).font({size: 0.5 * scale}).center(x, -scale);
             draw.text(letter).font({size: 0.5 * scale}).center(x, max_y + scale);
             x += scale;
         });
         var y = max_y;
-        $(["1", "2", "3", "4", "5", "6", "7", "8", "9"]).each(function(_, number){
+        $(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"]).each(function(_, number){
             draw.text(number).font({size: 0.5 * scale}).center(-scale, y);
             draw.text(number).font({size: 0.5 * scale}).center(max_x + scale, y);
             y -= scale;
         });
-        for (var x = -0.5; x < 8 * scale; x += scale){
-            draw.line(x, -0.5, x, 8 * scale - 0.5).stroke({
+        for (var x = -0.5; x < 12 * scale; x += scale){
+            draw.line(x, -0.5, x, 12 * scale - 0.5).stroke({
                 width: 1,
                 color: "#111"
             });
         }
-        for (var y = -0.5; y < 8 * scale; y += scale){
-            draw.line(-0.5, y, 8 * scale - 0.5, y).stroke({
+        for (var y = -0.5; y < 12 * scale; y += scale){
+            draw.line(-0.5, y, 12 * scale - 0.5, y).stroke({
                 width: 1,
                 color: "#111"
             });
         }
-        for (var y = 2 * scale - 0.5; y < 7 * scale; y += 2 * scale){
-            for (var x = 2 * scale - 0.5; x < 7 * scale; x += 2 * scale){
+        for (var y = 3 * scale - 0.5; y < 11 * scale; y += 3 * scale){
+            for (var x = 3 * scale - 0.5; x < 11 * scale; x += 3 * scale){
                 draw.circle(0.15 * scale).center(x, y).fill("#111");
             }
         }
@@ -140,8 +140,8 @@
     var hover_triggers = {};
     function add_hovers(draw, hover_draw)
     {
-        $(["A", "B", "C", "D", "E", "F", "G", "H", "I"]).each(function(_, x){
-            $([0, 1, 2, 3, 4, 5, 6, 7, 8]).each(function(_, y){
+        $(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]).each(function(_, x){
+            $([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]).each(function(_, y){
                 var coord = x + y;
                 var c = draw_coords(coord);
                 var stone = black_stone(draw, c[0], c[1]);

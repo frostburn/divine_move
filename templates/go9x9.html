@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load staticfiles %}
-{% block title %}Board Explorer 9&times;9{% endblock %}
+{% block title %}Board Explorer 13&times;13{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/go.css' %}">
 {% endblock %}
@@ -8,7 +8,7 @@
     <div class="row">
         <div class="col-md-6">
             <div class="row">
-                <h2 class="text-center">Board Explorer 9&times;9 Beta</h2>
+                <h2 class="text-center">Board Explorer 13&times;13 Beta</h2>
                 <div id="board" class="noselect"></div>
             </div>
             <div class="row game-buttons center-block text-center">
@@ -212,5 +212,5 @@
         window.end_json_url = "{% url 'go9x9_end_json' code %}";
         window.game_json_url = "{% url 'go9x9_game_json' code 1 %}";
     </script>
-    <script type="text/javascript" src="{% static 'js/go9x9.js' %}?v=1"></script>
+    <script type="text/javascript" src="{% static 'js/go9x9.js' %}?v=1a"></script>
 {% endblock %}

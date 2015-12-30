@@ -45,8 +45,8 @@ def process_sgf(sgf, serious=True):
     if add_white_re.search(sgf):
         raise NotImplementedError("Add white")
     size = int(size_re.search(sgf).group(1))
-    if size != 9:
-        raise ValueError("Only 9x9 supported")
+    if size != 13:
+        raise ValueError("Only 13x13 supported")
     board = Board(size)
     flip = False
     if add_black_re.search(sgf):
@@ -74,7 +74,7 @@ def process_sgf(sgf, serious=True):
         info[name] = field
     info = parse_game_info(info)
     move_number = 0
-    source = int_to_code(board.to_int(), GO_9x9_CODE_LENGTH)
+    source = int_to_code(board.to_int(), CODE_LENGTH)
     moves = []
     hasher = md5()
     while player:
@@ -85,7 +85,7 @@ def process_sgf(sgf, serious=True):
             board.make_move(x, y)
         else:
             board.pass_()
-        target = int_to_code(board.to_int(), GO_9x9_CODE_LENGTH)
+        target = int_to_code(board.to_int(), CODE_LENGTH)
         move_number += 1
         moves.append((source, target, move_number))
         hasher.update(target)
