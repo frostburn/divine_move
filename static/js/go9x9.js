@@ -705,8 +705,8 @@
         );
         $(".message-coord").each(function(_, mc){
             var $mc = $(mc);
-            var coord = $mc.text().replace("J", "I");
-            coord = coord[0] + (9 - coord[1]);
+            var coord = $mc.text().replace("J", "I").replace("K", "I").replace("L", "K").replace("M", "L").replace("N", "M");
+            coord = coord[0] + (13 - coord.slice(1));
             c = draw_coords(coord);
             var mark = triangle(foreground_draw, c[0], c[1]);
             mark.attr("fill-opacity", 0.0);
