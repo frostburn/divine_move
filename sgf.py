@@ -134,18 +134,21 @@ def process_sgf(sgf, serious=True):
 
 
 def remove_game(game_info):
-    raise NotImplementedError("Developer too lazy")
     sign = game_info.result_sign()
     source = None
     for position_info in game_info.position_infos.all().order_by('move_number'):
         target = position_info.position
+        if game_info.is_serious:
+            if sign > 0:
+                target.player_wins -= 1
+            elif sign < 0:
+                target.opponent_wins -= 1
+            else:
+                target.draws -= 1
+            target.save()
         if source is not None and game_info.is_serious:
             transition = Transition.objects.get(source=source, target=target)
             transition.times_played -= 1
-            if sign < 0:
-                transition.player_wins -= 1
-            elif sign >0:
-                transition.opponent_wins -= 1
             transition.save()
         position_info.delete()
         source = target
