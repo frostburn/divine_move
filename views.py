@@ -389,6 +389,9 @@ class Go9x9JSONView(View):
         return {
             "low_score": position.low_score,
             "high_score": position.high_score,
+            "player_wins": position.player_wins,
+            "opponent_wins": position.opponent_wins,
+            "draws": position.draws,
         }
 
     def add_position_message(self, request, data):
