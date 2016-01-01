@@ -146,12 +146,17 @@
                 var c = draw_coords(coord);
                 var stone = black_stone(draw, c[0], c[1]);
                 stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
+                // Remember clicked state when entering ajax lock.
+                stone.data("clicked", false);
                 hover_blacks[coord] = stone;
                 stone = white_stone(draw, c[0], c[1]);
                 stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
+                stone.data("clicked", false);
                 hover_whites[coord] = stone;
                 var trigger = hover_draw.rect(scale, scale).center(c[0], c[1]);
                 trigger.attr({"fill-opacity": 0.0});
+                // Remember the activation state even after the ajax lock has been lifted.
+                trigger.data("active", false);
                 hover_triggers[coord] = trigger;
             });
         });
@@ -240,7 +245,7 @@
             }
         }
         else {
-            $score.text("unknown");
+            $score.text("?");
         }
     }
 
@@ -313,6 +318,36 @@
             game_previous_data = null;
             $game_end.prop("disabled", true);
         }
+    }
+
+    function hide_hovers(){
+        $.each(hover_triggers, function(_, trigger){
+            trigger.off();  // Doesn't seem to work.
+            trigger.mouseover(function(){
+                trigger.data("active", true);
+            });
+            trigger.mouseout(function(){
+                trigger.data("active", false);
+            });
+            trigger.click(function(){});
+        });
+
+        $.each(hover_blacks, function(_, stone){
+            if (stone.data("clicked")){
+                stone.attr({"fill-opacity": 0.7, "stroke-opacity": 0.7});
+            }
+            else {
+                stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
+            }
+        });
+        $.each(hover_whites, function(_, stone){
+            if (stone.data("clicked")){
+                stone.attr({"fill-opacity": 0.7, "stroke-opacity": 0.7});
+            }
+            else {
+                stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
+            }
+        });
     }
 
     function render_stones(draw, hint_draw, data){
@@ -390,21 +425,6 @@
         var label_index = 0;
         var moves = data.moves;
 
-        $.each(hover_triggers, function(_, trigger){
-            trigger.off();  // Doesn't seem to work.
-            trigger.mouseover(function(){});
-            trigger.mouseout(function(){});
-            trigger.click(function(){});
-        });
-
-        $.each(hover_players, function(_, stone){
-            stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
-        });
-        $.each(hover_opponents, function(_, stone){
-            stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
-        });
-
-
         $(moves).each(function(index, move_data){
             var make_move = function(event){
                 event.preventDefault();
@@ -455,6 +475,17 @@
                 var $tr = $("<tr>");
                 $td = $("<td>");
                 $td.text(move_data.label);
+                $td.addClass("noselect");
+                $td.css("cursor", "pointer");
+                $td.hover(
+                    function(){
+                        $(this).addClass("active");
+                    },
+                    function(){
+                        $(this).removeClass("active");
+                    }
+                );
+                $td.click(make_move);
                 $tr.append($td);
                 var black_wins;
                 var white_wins;
@@ -526,13 +557,25 @@
             }
             var trigger = hover_triggers[coord];
             var stone = hover_players[coord];
+            if (trigger.data("active")){
+                stone.attr({"fill-opacity": 0.5, "stroke-opacity": 0.5});
+            }
             trigger.mouseover(function(){
                 stone.attr({"fill-opacity": 0.5, "stroke-opacity": 0.5});
+                trigger.data("active", true);
             });
             trigger.mouseout(function(){
                 stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
+                trigger.data("active", false);
             });
-            trigger.click(make_move);
+            trigger.click(function(e){
+                stone.data("clicked", true);
+                make_move(e);
+            });
+            $.each(hover_opponents, function(_, stone){
+                stone.data("clicked", false);
+                stone.attr({"fill-opacity": 0.0, "stroke-opacity": 0.0});
+            });
             var c = draw_coords(coord);
             if (move_data.color){
                 var hint = hint_draw.rect(0.9 * scale, 0.9 * scale).center(c[0], c[1]);
@@ -618,6 +661,7 @@
         $vote_buttons.attr("disabled", true);
         var $resolve = $("#resolve");
         $resolve.prop("disabled", true);
+        hide_hovers();
         $.ajax({
             url: url,
             dataType: "json",
