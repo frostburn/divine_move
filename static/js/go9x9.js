@@ -405,13 +405,13 @@
         if (redos.length){
             $next.click(function(event){
                 event.preventDefault();
+                if ($(this).prop("disabled")){
+                    return;
+                }
                 if (ajax_locked){
                     return;
                 }
                 ajax_locked = true;
-                if ($(this).prop("disabled")){
-                    return;
-                }
                 undos.push(current_data.endgame);
                 $status.empty();
                 move_num += 1;
@@ -428,13 +428,13 @@
         $(moves).each(function(index, move_data){
             var make_move = function(event){
                 event.preventDefault();
+                if ($(this).prop("disabled")){
+                    return;
+                }
                 if (ajax_locked){
                     return;
                 }
                 ajax_locked = true;
-                if ($(this).prop("disabled")){
-                    return;
-                }
                 redos = [];
                 undos.push(data.endgame);
                 $status.empty();
@@ -819,11 +819,11 @@
             }
         });
         $("#undo").click(function(){
-            if (ajax_locked){
-                return;
-            }
-            ajax_locked = true;
             if (undos.length){
+                if (ajax_locked){
+                    return;
+                }
+                ajax_locked = true;
                 move_num -= 1;
                 redos.push(current_data.endgame);
                 next_endgame({"endgame": undos.pop()});
@@ -950,13 +950,13 @@
         }
         $("#game_next").click(function(event){
             event.preventDefault();
+            if ($(this).prop("disabled")){
+                return;
+            }
             if (ajax_locked){
                 return;
             }
             ajax_locked = true;
-            if ($(this).prop("disabled")){
-                return;
-            }
             undos.push(current_data.endgame);
             redos = [];
             $("#status").empty();
@@ -965,13 +965,13 @@
             $(".vote").attr("disabled", false);
         });
         $("#game_previous").click(function(){
+            if ($(this).prop("disabled")){
+                return;
+            }
             if (ajax_locked){
                 return;
             }
             ajax_locked = true;
-            if ($(this).prop("disabled")){
-                return;
-            }
             undos = [];
             redos = []
             move_num -= 1;
