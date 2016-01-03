@@ -14,7 +14,7 @@ class Command(BaseCommand):
         total = Position.objects.all().count()
         self.stdout.write("Total positions %d" % (total,))
         PAGE_LEN = 1000
-        max_page = 1 + total // PAGE_LEN
+        max_page = -(-total // PAGE_LEN)
         page = 0
         while True:
             qs = Position.objects.all()[page * PAGE_LEN:(page + 1) * PAGE_LEN]

@@ -381,10 +381,10 @@ class Transition(models.Model):
         total_votes = 0
         for vote in self.votes.all():
             if vote.type == "ideal":
-                v += 0.8
+                v += 0.1
                 total_votes += 1
             elif vote.type == "good":
-                v += 0.4
+                v += 0.05
                 total_votes += 1
             elif vote.type == "bad":
                 v -= 1
@@ -404,8 +404,8 @@ class Transition(models.Model):
                 max_q = max(max_q, _rank_to_q(game_info.black_rank))
                 win += game_info.result_sign()
         if total_games:
-            q += 0.7 * tanh(0.2 * (max_q + 5))
-            q += 0.2 * win / total_games
+            q += 0.1 * tanh(0.2 * (max_q + 5))
+            q += 0.1 * win / total_games
         return q
 
 
