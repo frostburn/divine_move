@@ -198,6 +198,7 @@ def parse_game_info(data):
             data[name] = ""
     date = data["date"]
     if date:
+        date = date.split(",")[0]
         if date.count("-") == 2:
             date = datetime.strptime(date, "%Y-%m-%d").date()
         else:
@@ -206,7 +207,10 @@ def parse_game_info(data):
         date = None
     data["date"] = date
     if data["round"]:
-        data["round"] = int(data["round"])
+        r = data["round"]
+        if r.startswith("Round"):
+            r = r.split(" ")[1]
+        data["round"] = int(r)
     else:
         data["round"] = None
     if data["handicap"]:
@@ -263,7 +267,7 @@ class GameInfo(models.Model):
     place = models.CharField(max_length=64)
     rules = models.CharField(max_length=32)
     time = models.IntegerField(null=True)
-    overtime = models.CharField(max_length=32)
+    overtime = models.CharField(max_length=64)
 
     # Other fields
     hash = models.CharField(max_length=32)

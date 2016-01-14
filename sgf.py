@@ -77,7 +77,7 @@ def process_sgf(sgf, serious=True):
     source = int_to_code(board.to_int(), GO_9x9_CODE_LENGTH)
     moves = []
     hasher = md5()
-    while player:
+    while player and board.passes < 2:
         m = player.pop(0)
         if m:
             x = alpha.index(m[0])
