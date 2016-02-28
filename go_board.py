@@ -262,7 +262,6 @@ class Board(object):
             else:
                 assert False
         self.player |= move
-        num_kill = 0
         kill = 0
         chains_in_danger = [
             flood(move << 1, self.opponent, self.v_shift),
@@ -274,11 +273,10 @@ class Board(object):
             if not chain:
                 continue
             if not liberties(chain, self.playing_area & ~self.player, self.v_shift):
-                num_kill += popcount(chain)
                 kill |= chain
         self.opponent ^= kill
         self.ko = 0
-        if num_kill == 1:
+        if popcount(kill) == 1:
             if not liberties(move, self.player, self.v_shift):
                 if liberties(move, self.playing_area & ~self.opponent, self.v_shift) == kill:
                     self.ko = kill
