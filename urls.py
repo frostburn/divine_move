@@ -3,6 +3,7 @@ from django.views.generic import RedirectView
 from django.contrib.auth import views as auth_views
 
 from . import views
+from . import tsumego_views
 
 urlpatterns = [
     url(r'^clear_session/$',views.clear_session, name='clear_session'),
@@ -27,5 +28,6 @@ urlpatterns = [
     url(r'^json/go9x9/game/(?P<code>[a-zA-Z0-9_-]+)/(?P<game_num>[0-9]+)/$', views.Go9x9JSONGameView.as_view(), name='go9x9_game_json'),
     url(r'^api/go9x9/add_sgf/$', views.go9x9_add_sgf, name='go9x9_sgf_api'),
     url(r'^faq/go9x9/$', views.Go9x9FAQView.as_view(), name='go9x9_faq'),
+    url(r'^json/tsumego/(?P<name>[a-zA-Z0-9_-]+)/(?P<code>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoJSONView.as_view(), name='tsumego_json'),
     url(r'^$', views.IndexView.as_view(), name='index'),
 ]

@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
+from math import log, ceil
+
 from django.conf import settings
+import pexpect
 
 from go_board import ALPHA, popcount
+from utils import *
 
 
 WIDTH = 9
@@ -25,8 +30,9 @@ def rectangle(width, height):
 
 def flood(source, target):
     source &= target
-    temp = WEST_BLOCK & target
-    source |= temp & ~(source + temp)
+    # Disabled until further testing.
+    # temp = WEST_BLOCK & target
+    # source |= temp & ~((source & WEST_BLOCK) + temp)
     while True:
         temp = source
         source |= (
@@ -65,8 +71,21 @@ def liberties(stones, empty):
     ) & ~stones & empty
 
 
+def to_coord_list(stones):
+    result = []
+    for x in range(WIDTH):
+        for y in range(HEIGHT):
+            if stones & (1 << (x * H_SHIFT + y * V_SHIFT)):
+                result.append([x, y])
+    return result
+
+
+class TsumegoError(Exception):
+    pass
+
+
 class State(object):
-    def __init__(self, playing_area, player=0, opponent=0, ko=0, target=0, immortal=0, passes=0, ko_threats=0, white_to_play=False):
+    def __init__(self, playing_area, player=0, opponent=0, ko=0, target=0, immortal=0, passes=0, ko_threats=0, white_to_play=False, black_prisoners=0, white_prisoners=0):
         self.playing_area = playing_area
         self.player = player
         self.opponent = opponent
@@ -77,8 +96,8 @@ class State(object):
         self.ko_threats = ko_threats
         self.white_to_play = white_to_play
 
-        self.black_prisoners = 0
-        self.white_prisoners = 0
+        self.black_prisoners = black_prisoners
+        self.white_prisoners = white_prisoners
 
         open_area = playing_area & ~(target | immortal)
         self.moves = [0]
@@ -88,21 +107,19 @@ class State(object):
                 self.moves.append(move)
 
     def copy(self):
-        c = State(
-                self.playing_area,
-                self.player,
-                self.opponent,
-                self.ko,
-                self.target,
-                self.immortal,
-                self.passes,
-                self.ko_threats,
-                self.white_to_play
-            )
-        c.black_prisoners = self.black_prisoners
-        c.white_prisoners = self.white_prisoners
-        c.moves = self.moves[:]
-        return c
+        return State(
+            self.playing_area,
+            self.player,
+            self.opponent,
+            self.ko,
+            self.target,
+            self.immortal,
+            self.passes,
+            self.ko_threats,
+            self.white_to_play,
+            self.black_prisoners,
+            self.white_prisoners,
+        )
 
     def make_move(self, move):
         old_player = self.player
@@ -180,6 +197,10 @@ class State(object):
     def active(self):
         return self.passes < 2 and not self.target_dead()
 
+    def swap_players(self):
+        self.player, self.opponent = (self.opponent, self.player)
+        self.white_to_play = not self.white_to_play
+
     def render(self):
         if self.white_to_play:
             black = self.opponent
@@ -233,6 +254,135 @@ class State(object):
             self.white_to_play
         )
 
+    def get_colors(self):
+        if self.white_to_play:
+            white = self.player
+            black = self.opponent
+        else:
+            black = self.player
+            white = self.opponent
+        return black, white
+
+    @property
+    def code_size(self):
+        max_code = 3 ** len(self.moves) * (3 + len(self.moves)) * 2
+        return int(ceil(log(max_code, 64)))
+
+    def to_code(self):
+        black, white = self.get_colors()
+        code = 0
+        ko_pos = 0
+        for i, m in enumerate(sorted(self.moves)):
+            code *= 3
+            if black & m:
+                code += 1
+            elif white & m:
+                code += 2
+            if self.ko & m:
+                ko_pos = i
+            i += 1
+        if not self.ko:
+            ko_pos = len(self.moves)
+        if self.passes:
+            assert not self.ko
+            assert self.passes <= 2
+            ko_pos += self.passes
+        code *= 3 + len(self.moves)
+        code += ko_pos
+        code *= 2
+        code += self.white_to_play
+
+        code = int_to_code(code, self.code_size)
+        code += "_%s_%s_%s" % (self.ko_threats, self.black_prisoners, self.white_prisoners)
+
+        return code
+
+    def from_code(self, code):
+        other = self.__class__(
+            playing_area=self.playing_area,
+            target=self.target,
+            immortal=self.immortal,
+        )
+        if code.count("_") != 3:
+            raise TsumegoError("Invalid code")
+        code, rest = code.split("_", 1)
+        other.ko_threats, other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
+        code = code_to_int(code)
+        other.white_to_play = bool(code % 2)
+        code //= 2
+        ko_pos = code % (3 + len(self.moves))
+        code //= (3 + len(self.moves))
+        if ko_pos < len(self.moves):
+            other.ko = sorted(self.moves)[ko_pos]
+        else:
+            other.passes = ko_pos - len(self.moves)
+        black = 0
+        white = 0
+        for m in reversed(sorted(self.moves)):
+            stone = code % 3
+            code //= 3
+            if stone == 1:
+                black |= m
+            elif stone == 2:
+                white |= m
+        if other.white_to_play:
+            other.player = white
+            other.opponent = black
+        else:
+            other.player = black
+            other.opponent = white
+        return other
+
+    def _get_json_members(self, color, name):
+        color_target = flood(self.target, color)
+        color_immortal = flood(self.immortal, color)
+        color_escaped = color_target & color_immortal
+        color ^= color_target | color_immortal
+        color_target ^= color_escaped
+        color_immortal ^= color_escaped
+
+        result = {}
+        result[name] = color
+        result[name + "_target"] = color_target
+        result[name + "_immortal"] = color_immortal
+        result[name + "_escaped"] = color_escaped
+
+        for key, value in result.items():
+            result[key] = to_coord_list(value)
+
+        return result
+
+    def to_json(self):
+        black, white = self.get_colors()
+
+        moves = 0
+        for move in self.moves:
+            child = self.copy()
+            valid, prisoners = child.make_move(move)
+            if valid:
+                moves |= move
+
+        result = {
+            "code": self.to_code(),
+            "ko": to_coord_list(self.ko),
+            "passes": self.passes,
+            "ko_threats": self.ko_threats,
+            "white_to_play": self.white_to_play,
+            "black_prisoners": self.black_prisoners,
+            "white_prisoners": self.white_prisoners,
+            "moves": to_coord_list(moves),
+        }
+        result.update(self._get_json_members(black, "black"))
+        result.update(self._get_json_members(white, "white"))
+
+        return result
+
+    @classmethod
+    def load(cls, d):
+        instance = cls(*map(int, d.split(" ")))
+        instance.white_to_play = bool(instance.white_to_play)
+        return instance
+
 
 class NodeValue(object):
     def __init__(self, low, high, low_distance, high_distance):
@@ -240,6 +390,10 @@ class NodeValue(object):
         self.high = high
         self.low_distance = low_distance
         self.high_distance = high_distance
+
+    @property
+    def valid(self):
+        return (self.low <= self.high and self.low_distance >= 0 and self.high_distance >= 0)
 
     def low_child(self, other, prisoners=0):
         return -other.high + prisoners == self.low and other.high_distance + 1 == self.low_distance
@@ -252,16 +406,29 @@ class NodeValue(object):
 
 
 _QUERY = None
+BASE_STATES = {}
+LAYERS = []
+
+
+def init_query():
+    global _QUERY, BASE_STATES, LAYERS
+    if _QUERY is None:
+        os.chdir(settings.TSUMEGO_QUERY_PATH)
+        filenames = [name + "_japanese.dat" for name in settings.TSUMEGO_NAMES]
+        _QUERY = pexpect.spawn("./query " + " ".join(filenames), echo=False)
+        for name in settings.TSUMEGO_NAMES:
+            _QUERY.expect(" ".join(["\d+"] * 9))
+            BASE_STATES[name] = State.load(_QUERY.after)
+            _QUERY.expect("\d")
+            LAYERS.append(int(_QUERY.after))
+        _QUERY.expect("Solutions loaded.")
+    return BASE_STATES
 
 
 def query(state):
-    import os
-    import pexpect
-    global _QUERY
     os.chdir(settings.TSUMEGO_QUERY_PATH)
     if _QUERY is None:
-        _QUERY = pexpect.spawn("./query", echo=False)
-        _QUERY.expect("Solutions loaded.")
+        raise ValueError("Call init_query first")
     _QUERY.sendline(state.dump())
     _QUERY.expect("-?\d+ -?\d+ \d+ \d+")
     out = map(int, _QUERY.after.split(" "))
@@ -276,33 +443,75 @@ def query(state):
     return v, children
 
 
-def demo():
+def get_coords():
+    while True:
+        coords = raw_input("Enter coordinates: ").upper()
+        if coords.startswith("PASS"):
+            return None
+        else:
+            try:
+                if coords[0].isalpha():
+                    x = ALPHA.index(coords[0])
+                    y = int(coords[1])
+                else:
+                    x = ALPHA.index(coords[1])
+                    y = int(coords[0])
+            except ValueError, IndexError:
+                print "Invalid coordinates!"
+                continue
+        return x, y
+
+
+def format_value(state, value):
+    if state.white_to_play:
+        result = -value.high + state.white_prisoners - state.black_prisoners
+    else:
+        result = value.low + state.white_prisoners - state.black_prisoners
+    if result < 0:
+        result = "W+" + str(-result)
+    else:
+        result = "B+" + str(result)
+    return result
+
+
+def get_result(state):
+    value, children = query(state)
+    return format_value(state, value)
+
+
+def get_full_result(state):
+    value, children = query(state)
+    r = format_value(state, value) + "\n"
+    for move in state.moves:
+        if move not in children:
+            continue
+        child = state.copy()
+        valid, prisoners = child.make_move(move)
+        if valid:
+            child_value = children[move]
+            r += format_value(child, child_value) + " "
+    return r
+
+
+def demo(tsumego_name="4x4", ko_threats=0):
     import random
-    state = State(rectangle(4, 4))
+    init_query()
+    state = BASE_STATES[tsumego_name].copy()
+    state.ko_threats = ko_threats
     print state.render()
     while state.active():
         assert(not state.white_to_play)
         while True:
-            coords = raw_input("Enter coordinates: ").upper()
-            if coords.startswith("PASS"):
+            coords = get_coords()
+            if coords is None:
                 state.make_move(0)
                 break
             else:
-                try:
-                    if coords[0].isalpha():
-                        x = ALPHA.index(coords[0])
-                        y = int(coords[1])
-                    else:
-                        x = ALPHA.index(coords[1])
-                        y = int(coords[0])
-                except ValueError, IndexError:
-                    print "Invalid coordinates!"
-                    continue
-                valid, prisoners = state.make_move(1 << (x * H_SHIFT + y * V_SHIFT))
+                valid, prisoners = state.make_move(1 << (coords[0] * H_SHIFT + coords[1] * V_SHIFT))
                 if valid:
                     break
                 else:
-                    print "Invalid coordinates!"
+                    print "Invalid move!"
         print state.render()
         if not state.active():
             break
@@ -324,13 +533,30 @@ def demo():
             raise IndexError("Inconsistent query database.")
         print state.render()
 
-    value, children = query(state)
-    if state.white_to_play:
-        result = -value.high + state.black_prisoners - state.white_prisoners
-    else:
-        result = value.low + state.white_prisoners - state.black_prisoners
-    if result < 0:
-        result = "W+" + str(-result)
-    else:
-        result = "B+" + str(result)
+    result = get_result(state)
     print "Result %s" % result
+
+def design(width, height):
+    # state = State(rectangle(width, height))
+    state = State.load("8744452554367 8735980290112 4164952080 0 4164952080 8735980290112 0 0 0")
+    # state = State.load("8744452554367 8740283662432 4168891416 0 4164952080 8735980290112 0 0 0")  # Bent four in the corner
+    state = State.load("8744452554367 4168884754 8740283665508 0 4164952080 8735980290112 0 0 1")  # Ten thousand year ko
+    state.swap_players()
+    state.ko_threats = 1
+    while True:
+        print state.render()
+        print get_full_result(state)
+        print state.dump()
+        if not state.active():
+            break
+        while True:
+            coords = get_coords()
+            if coords is None:
+                state.make_move(0)
+                break
+            else:
+                valid, prisoners = state.make_move(1 << (coords[0] * H_SHIFT + coords[1] * V_SHIFT))
+                if valid:
+                    break
+                else:
+                    print "Invalid move!"
