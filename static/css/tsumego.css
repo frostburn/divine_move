@@ -1,0 +1,96 @@
+.stone-row {
+    display: block;
+    height: 30px;
+}
+
+.black {
+    box-sizing: border-box;
+    left: 0;
+    background-color: black;
+    border-radius: 50%;
+    box-shadow: 1px 1px 1px #404040;
+    background-image: -webkit-radial-gradient( 40% 40%, circle closest-corner, #404040 0%, rgba(0, 0, 0, 0) 90%);
+    background-image: -moz-radial-gradient( 40% 40%, circle closest-side, #404040 0%, rgba(0, 0, 0, 0) 90%);
+}
+
+.white {
+    left: 0;
+    box-sizing: border-box;
+    background-color: white;
+    border-radius: 50%;
+    box-shadow: 1px 1px 1px #404040 , inset -3px -3px 5px gray;
+}
+
+.move {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+.move:hover {
+    opacity: 0.8;
+}
+
+.black.move:hover {
+    background-color: black;
+    box-shadow: 1px 1px 1px #404040;
+    background-image: -webkit-radial-gradient( 40% 40%, circle closest-corner, #404040 0%, rgba(0, 0, 0, 0) 90%);
+    background-image: -moz-radial-gradient( 40% 40%, circle closest-side, #404040 0%, rgba(0, 0, 0, 0) 90%);
+}
+
+.white.move:hover {
+    background-color: white;
+    box-shadow: 1px 1px 1px #404040 , inset -3px -3px 5px gray;
+}
+
+.empty {
+    left: 0;
+    box-sizing: border-box;
+    background-color: white;
+    width: 50%;
+    height: 50%;
+    border-radius: 50%;
+    box-shadow: 1px 1px 1px #404040 , inset -10px -10px 10px gray;
+}
+
+.cell {
+    width: 30px;
+    height: 30px;
+    display: inline-block;
+    position: relative;
+}
+
+.stone-row .cell:before {
+    margin: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    content: "";
+    background-color: #522;
+    width: 1px;
+    height: 100%;
+    z-index: -1;
+}
+
+.stone-row .cell:after {
+    margin: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    content: "";
+    background-color: #522;
+    width: 100%;
+    height: 1px;
+    z-index: -1;
+}
+
+.move:hover:before {
+    background-color: transparent;
+}
+.move:hover:after {
+    background-color: transparent;
+}

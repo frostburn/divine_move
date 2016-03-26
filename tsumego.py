@@ -85,6 +85,8 @@ class TsumegoError(Exception):
 
 
 class State(object):
+    num_code_chars = 63
+
     def __init__(self, playing_area, player=0, opponent=0, ko=0, target=0, immortal=0, passes=0, ko_threats=0, white_to_play=False, black_prisoners=0, white_prisoners=0):
         self.playing_area = playing_area
         self.player = player
@@ -105,6 +107,17 @@ class State(object):
             move = 1 << i
             if move & open_area:
                 self.moves.append(move)
+
+        row_widths = []
+        for j in reversed(range(HEIGHT)):
+            width = 0
+            for i in reversed(range(WIDTH)):
+                if self.playing_area & (1 << (i + j * V_SHIFT)):
+                    width = i + 1
+                    break
+            if width or row_widths:
+                row_widths.append(width)
+        self.row_widths = row_widths[::-1]
 
     def copy(self):
         return State(
@@ -266,7 +279,7 @@ class State(object):
     @property
     def code_size(self):
         max_code = 3 ** len(self.moves) * (3 + len(self.moves)) * 2
-        return int(ceil(log(max_code, 64)))
+        return int(ceil(log(max_code, self.num_code_chars)))
 
     def to_code(self):
         black, white = self.get_colors()
@@ -292,22 +305,22 @@ class State(object):
         code *= 2
         code += self.white_to_play
 
-        code = int_to_code(code, self.code_size)
+        code = int_to_code(code, self.code_size, num_chars=self.num_code_chars)
         code += "_%s_%s_%s" % (self.ko_threats, self.black_prisoners, self.white_prisoners)
 
         return code
 
     def from_code(self, code):
-        other = self.__class__(
-            playing_area=self.playing_area,
-            target=self.target,
-            immortal=self.immortal,
-        )
+        other = self.copy()
+        fixed = self.target | self.immortal
+        other.player &= fixed
+        other.opponent &= fixed
+
         if code.count("_") != 3:
             raise TsumegoError("Invalid code")
         code, rest = code.split("_", 1)
         other.ko_threats, other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
-        code = code_to_int(code)
+        code = code_to_int(code, num_chars=self.num_code_chars)
         other.white_to_play = bool(code % 2)
         code //= 2
         ko_pos = code % (3 + len(self.moves))
@@ -325,14 +338,17 @@ class State(object):
                 black |= m
             elif stone == 2:
                 white |= m
+        if other.white_to_play != self.white_to_play:
+            other.player, other.opponent = other.opponent, other.player
         if other.white_to_play:
-            other.player = white
-            other.opponent = black
+            other.player |= white
+            other.opponent |= black
         else:
-            other.player = black
-            other.opponent = white
+            other.player |= black
+            other.opponent |= white
         return other
 
+    # TODO: Make use of in react compatible way
     def _get_json_members(self, color, name):
         color_target = flood(self.target, color)
         color_immortal = flood(self.immortal, color)
@@ -362,6 +378,33 @@ class State(object):
             if valid:
                 moves |= move
 
+        color_to_play = ("white" if self.white_to_play else "black")
+        rows = []
+        for j in range(len(self.row_widths)):
+            row = []
+            for i in range(self.row_widths[j]):
+                m = 1 << (i + j * V_SHIFT)
+                t = ""
+                if m & black:
+                    t = "black"
+                elif m & white:
+                    t = "white"
+                elif m & moves:
+                    t = "%s move" % color_to_play
+                elif m & self.playing_area:
+                    t = "empty"
+
+                stone = {
+                    "id": "stone_%d_%d" % (j, i),
+                    "class_name": t,
+                    "coords": "%d_%d" % (i, j),
+                }
+                row.append(stone)
+            rows.append({
+                "id": "row_%d" % j,
+                "stones": row,
+            })
+
         result = {
             "code": self.to_code(),
             "ko": to_coord_list(self.ko),
@@ -370,10 +413,8 @@ class State(object):
             "white_to_play": self.white_to_play,
             "black_prisoners": self.black_prisoners,
             "white_prisoners": self.white_prisoners,
-            "moves": to_coord_list(moves),
+            "rows": rows,
         }
-        result.update(self._get_json_members(black, "black"))
-        result.update(self._get_json_members(white, "white"))
 
         return result
 

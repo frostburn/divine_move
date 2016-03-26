@@ -15,17 +15,17 @@ def str_base(number, base):
 chars64 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_"
 
 
-def int_to_code(i, size):
+def int_to_code(i, size, num_chars=64):
     code = ""
     for _ in xrange(size):
-        code += chars64[i % 64]
-        i //= 64
+        code += chars64[i % num_chars]
+        i //= num_chars
     return code
 
 
-def code_to_int(code):
+def code_to_int(code, num_chars=64):
     result = 0
     for char in reversed(code):
-        result *= 64
+        result *= num_chars
         result += chars64.index(char)
     return result
