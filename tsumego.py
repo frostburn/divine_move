@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 from math import log, ceil
+import random
 
 from django.conf import settings
 import pexpect
@@ -204,14 +205,29 @@ class State(object):
         self.white_to_play = not self.white_to_play
         return True, num_kill
 
+    def add_player(self, move):
+        result = self.make_move(move)
+        self.swap_players()
+        return result
+
+    def add_opponent(self, move):
+        self.swap_players()
+        return self.make_move(move)
+
+    def remove(self, move):
+        self.player &= ~move
+        self.opponent &= ~move
+
     def target_dead(self):
         return bool(self.target & ~(self.player | self.opponent))
 
+    @property
     def active(self):
         return self.passes < 2 and not self.target_dead()
 
     def swap_players(self):
         self.player, self.opponent = (self.opponent, self.player)
+        self.ko_threats = -self.ko_threats
         self.white_to_play = not self.white_to_play
 
     def render(self):
@@ -306,7 +322,10 @@ class State(object):
         code += self.white_to_play
 
         code = int_to_code(code, self.code_size, num_chars=self.num_code_chars)
-        code += "_%s_%s_%s" % (self.ko_threats, self.black_prisoners, self.white_prisoners)
+        if self.ko_threats:
+            code += "_%d" % (self.ko_threats,)
+        if self.black_prisoners or self.white_prisoners:
+            code += "_%d_%d" % (self.black_prisoners, self.white_prisoners)
 
         return code
 
@@ -316,10 +335,18 @@ class State(object):
         other.player &= fixed
         other.opponent &= fixed
 
-        if code.count("_") != 3:
-            raise TsumegoError("Invalid code")
-        code, rest = code.split("_", 1)
-        other.ko_threats, other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
+        other.ko_threats, other.black_prisoners, other.white_prisoners = (0, 0, 0)
+        if "_" in code:
+            code, rest = code.split("_", 1)
+            if rest.count("_") == 0:
+                other.ko_threats = int(rest)
+            elif rest.count("_") == 1:
+                other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
+            elif rest.count("_") == 2:
+                other.ko_threats, other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
+            else:
+                raise TsumegoError("Invalid code")
+
         code = code_to_int(code, num_chars=self.num_code_chars)
         other.white_to_play = bool(code % 2)
         code //= 2
@@ -372,13 +399,20 @@ class State(object):
         black, white = self.get_colors()
 
         moves = 0
+        o_moves = 0
         for move in self.moves:
             child = self.copy()
             valid, prisoners = child.make_move(move)
             if valid:
                 moves |= move
+            child = self.copy()
+            child.swap_players()
+            valid, prisoners = child.make_move(move)
+            if valid:
+                o_moves |= move
 
         color_to_play = ("white" if self.white_to_play else "black")
+        o_color = ("black" if self.white_to_play else "white")
         rows = []
         for j in range(len(self.row_widths)):
             row = []
@@ -389,13 +423,17 @@ class State(object):
                     t = "black"
                 elif m & white:
                     t = "white"
-                elif m & moves:
+                elif m & self.ko:
+                    t = "ko"
+                if m & moves:
                     t = "%s move" % color_to_play
-                elif m & self.playing_area:
-                    t = "empty"
+                if m & o_moves:
+                    if t:
+                        t += " o_move"
+                    else:
+                        t = "o_move"
 
                 stone = {
-                    "id": "stone_%d_%d" % (j, i),
                     "class_name": t,
                     "coords": "%d_%d" % (i, j),
                 }
@@ -413,7 +451,9 @@ class State(object):
             "white_to_play": self.white_to_play,
             "black_prisoners": self.black_prisoners,
             "white_prisoners": self.white_prisoners,
+            "active": self.active,
             "rows": rows,
+            "dump": self.dump(),
         }
 
         return result
@@ -447,8 +487,15 @@ class NodeValue(object):
 
 
 _QUERY = None
-BASE_STATES = {}
-LAYERS = []
+BASE_STATES = {"design": State(rectangle(9, 7))}
+LAYERS = [0]
+
+
+def reset_query():
+    global _QUERY, LAYERS
+    _QUERY = None
+    LAYERS = [0]
+    return "DB reset"
 
 
 def init_query():
@@ -517,6 +564,8 @@ def format_value(state, value):
 
 def get_result(state):
     value, children = query(state)
+    if not value.valid:
+        raise TsumegoError("Tsumego not in DB")
     return format_value(state, value)
 
 
@@ -534,13 +583,29 @@ def get_full_result(state):
     return r
 
 
+def make_book_move(state):
+    value, children = query(state)
+    if not value.valid:
+        raise TsumegoError("Tsumego not in DB")
+    random.shuffle(state.moves)
+    for move in state.moves:
+        if move not in children:
+            continue
+        child = state.copy()
+        valid, prisoners = child.make_move(move)
+        if valid:
+            child_value = children[move]
+            if value.high_child(child_value, prisoners):
+                state.make_move(move)
+                return child_value
+
+
 def demo(tsumego_name="4x4", ko_threats=0):
-    import random
     init_query()
     state = BASE_STATES[tsumego_name].copy()
     state.ko_threats = ko_threats
     print state.render()
-    while state.active():
+    while state.active:
         assert(not state.white_to_play)
         while True:
             coords = get_coords()
@@ -554,7 +619,7 @@ def demo(tsumego_name="4x4", ko_threats=0):
                 else:
                     print "Invalid move!"
         print state.render()
-        if not state.active():
+        if not state.active:
             break
 
         value, children = query(state)
@@ -588,7 +653,7 @@ def design(width, height):
         print state.render()
         print get_full_result(state)
         print state.dump()
-        if not state.active():
+        if not state.active:
             break
         while True:
             coords = get_coords()

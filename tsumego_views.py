@@ -9,14 +9,33 @@ from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.http import HttpResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, resolve_url
-from django.views.generic import View, TemplateView
+from django.views.generic import RedirectView, View, TemplateView
 
 from tsumego import *
 
 
 def parse_move(move):
+    if move == "pass":
+        return 0
     x, y = map(int, move.split("_"))
     return 1 << (x + V_SHIFT * y)
+
+
+class TsumegoResetView(View):
+    def get(self, request):
+        return HttpResponse(reset_query())
+
+
+class TsumegoEmptyView(RedirectView):
+    permanent = False
+    pattern_name = "tsumego"
+    query_string = True
+    def get_redirect_url(self, *args, **kwargs):
+        base_states = init_query()
+        state = base_states[kwargs["name"]].copy()
+        state.ko_threats = 0
+        kwargs["code"] = state.to_code()
+        return super(TsumegoEmptyView, self).get_redirect_url(*args, **kwargs)
 
 
 class TsumegoView(TemplateView):
@@ -25,9 +44,11 @@ class TsumegoView(TemplateView):
     def get_context_data(self, *args, **kwargs):
         context = super(TsumegoView, self).get_context_data(*args, **kwargs)
         base_states = init_query()
-        state = base_states[kwargs["name"]].copy()
+        state = base_states[kwargs["name"]].from_code(kwargs["code"])
         context["tsumego_name"] = kwargs["name"]
-        context["state"] = json.dumps(state.to_json())
+        state_json = state.to_json()
+        # state_json["result"] = get_result(state)
+        context["state"] = json.dumps(state_json)
         return context
 
 
@@ -37,8 +58,8 @@ class TsumegoJSONView(View):
         base_state = base_states[kwargs["name"]]
         try:
             state = base_state.from_code(self.request.GET["code"])
-        except TsumegoError:
-            return JsonResponse({"error": "Tsumego not found."})
+        except TsumegoError as e:
+            return JsonResponse({"error": e.message})
 
         move = self.request.GET.get("move")
         if move:
@@ -46,21 +67,31 @@ class TsumegoJSONView(View):
             valid, prisoners = state.make_move(parse_move(move))
             if not valid:
                 return JsonResponse({"error": "Invalid move."})
-        if self.request.GET.get("vs_book"):
-            value, children = query(state)
-            if not value.valid:
-                return JsonResponse({"error": "Tsumego not in DB."})
-            random.shuffle(state.moves)
-            for move in state.moves:
-                if move not in children:
-                    continue
-                child = state.copy()
-                valid, prisoners = child.make_move(move)
-                if valid:
-                    child_value = children[move]
-                    if value.high_child(child_value, prisoners):
-                        state = child
-                        value = child_value
-                        break
 
-        return JsonResponse(state.to_json())
+        add_player = self.request.GET.get("add_player")
+        if add_player:
+            state.add_player(parse_move(add_player))
+
+        add_opponent = self.request.GET.get("add_opponent")
+        if add_opponent:
+            state.add_opponent(parse_move(add_opponent))
+
+        remove = self.request.GET.get("remove")
+        if remove:
+            state.remove(parse_move(remove))
+
+        # Check that the state is still active.
+        if self.request.GET.get("vs_book"):
+            try:
+                make_book_move(state)
+            except TsumegoError as e:
+                return JsonResponse({"error": e.message})
+
+        result = state.to_json()
+        if self.request.GET.get("value"):
+            try:
+                result["result"] = get_result(state)
+            except TsumegoError as e:
+                return JsonResponse({"error": e.message})
+
+        return JsonResponse(result)
