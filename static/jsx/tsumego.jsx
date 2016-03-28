@@ -55,7 +55,7 @@ var Board = React.createClass({
             />
         ));
         return (
-            <div className="board">
+            <div className="board col-md-6">
                 {rows}
             </div>
         );
@@ -196,13 +196,15 @@ var Game = React.createClass({
     render: function() {
         var mode_options = ["move", "add_player", "add_opponent", "remove"];
         return (
-            <div className="game">
+            <div className="game row">
                 <Board data={this.state.data.rows} onMove={this.handleMove} mode={this.state.mode} />
-                <PassButton onMove={this.handleMove} />
-                <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
-                <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
-                <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
-                <StatusRow data={this.state.data} />
+                <div className="col-md-6">
+                    <PassButton onMove={this.handleMove} />
+                    <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
+                    <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
+                    <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
+                    <StatusRow data={this.state.data} />
+                </div>
             </div>
         );
     }
@@ -211,5 +213,5 @@ var Game = React.createClass({
 
 ReactDOM.render(
     <Game data={window.state} />,
-    document.getElementById('content')
+    document.getElementById('container')
 );
