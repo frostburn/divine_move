@@ -418,25 +418,44 @@ class State(object):
             row = []
             for i in range(self.row_widths[j]):
                 m = 1 << (i + j * V_SHIFT)
-                t = ""
                 if m & black:
-                    t = "black"
+                    color = "black"
                 elif m & white:
-                    t = "white"
+                    color = "white"
                 elif m & self.ko:
-                    t = "ko"
-                if m & moves:
-                    t = "%s move" % color_to_play
-                if m & o_moves:
-                    if t:
-                        t += " o_move"
-                    else:
-                        t = "o_move"
+                    color = "ko"
+                else:
+                    color = "none"
+
+                pa = self.playing_area
+                horizontal = ""
+                vertical = ""
+                if m & pa:
+                    if m & east(pa):
+                        horizontal += "e"
+                    if m & west(pa):
+                        horizontal += "w"
+                    if m & north(pa):
+                        vertical += "n"
+                    if m & south(pa):
+                        vertical += "s"
 
                 stone = {
-                    "class_name": t,
+                    "color": color,
                     "coords": "%d_%d" % (i, j),
                 }
+                if vertical:
+                    stone["ver"] = vertical
+                    if not horizontal:
+                        stone["hor"] = "dot"
+                if horizontal:
+                    stone["hor"] = horizontal
+                    if not vertical:
+                        stone["ver"] = "dot"
+                if m & moves:
+                    stone["move"] = True
+                if m & o_moves:
+                    stone["o_move"] = True
                 row.append(stone)
             rows.append({
                 "id": "row_%d" % j,
@@ -445,7 +464,6 @@ class State(object):
 
         result = {
             "code": self.to_code(),
-            "ko": to_coord_list(self.ko),
             "passes": self.passes,
             "ko_threats": self.ko_threats,
             "white_to_play": self.white_to_play,

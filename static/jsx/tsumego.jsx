@@ -1,25 +1,49 @@
 var Cell = React.createClass({
     handleClick: function(e) {
         e.preventDefault();
-        if (this.props.mode == "remove") {
+        if (this.props.mode === "remove") {
             this.props.onMove(this.props.coords);
         }
-        var classes = this.props.class_name.split(" ")
-        if (this.props.mode == "add_opponent") {
-            if (classes.indexOf("o_move") != -1) {
+        if (this.props.mode === "add_opponent") {
+            if (this.props.o_move) {
                 this.props.onMove(this.props.coords);
                 return;
             }
         }
-        else if (classes.indexOf("move") != -1) {
+        else if (this.props.move) {
             this.props.onMove(this.props.coords);
             return;
         }
     },
     render: function() {
-        var class_name = "cell " + this.props.class_name;
+        var children = [];
+        if (this.props.vertical) {
+            children.push(<span className={"vertical " + this.props.vertical} key="vertical"/>);
+        }
+        if (this.props.horizontal) {
+            children.push(<span className={"horizontal " + this.props.horizontal} key="horizontal"/>);
+        }
+        var color_to_play = this.props.white_to_play ? "white" : "black";
+        var opponent_color = this.props.white_to_play ? "black" : "white";
+        var class_name = this.props.color + " stone";
+        if (this.props.mode === "remove") {
+            // pass
+        }
+        else if (this.props.mode === "add_opponent") {
+            if (this.props.o_move) {
+                class_name += " " + opponent_color + "-move";
+            }
+        }
+        else {
+            if (this.props.move) {
+                class_name += " " + color_to_play + "-move";
+            }
+        }
+        children.push(<span className={class_name} key="stone"/>);
         return (
-            <span className={class_name} onClick={this.handleClick}/>
+            <div className="cell" onClick={this.handleClick}>
+                {children}
+            </div>
         );
     }
 });
@@ -28,11 +52,16 @@ var Row = React.createClass({
     render: function() {
         var cells = this.props.data.map((stone) => (
             <Cell 
-                class_name={stone.class_name}
+                color={stone.color}
+                vertical={stone.ver}
+                horizontal={stone.hor}
+                move={stone.move}
+                o_move={stone.o_move}
                 coords={stone.coords}
                 key={stone.coords}
                 onMove={this.props.onMove}
                 mode={this.props.mode}
+                white_to_play={this.props.white_to_play}
             />
         ));
 
@@ -52,10 +81,11 @@ var Board = React.createClass({
                 key={row.id}
                 onMove={this.props.onMove}
                 mode={this.props.mode}
+                white_to_play={this.props.white_to_play}
             />
         ));
         return (
-            <div className="board col-md-6">
+            <div className="board">
                 {rows}
             </div>
         );
@@ -94,7 +124,7 @@ var RadioGroup = React.createClass({
                         type="radio"
                         name={this.props.name}
                         value={option}
-                        checked={this.props.selected == option}
+                        checked={this.props.selected === option}
                         onChange={this.props.onChange.bind(null, option)}
                     />
                     {option}
@@ -142,7 +172,8 @@ function handle_error(data) {
 
 var Game = React.createClass({
     doFetch: function(params) {
-        if (!this.state.data.active) {
+        // TODO: Fix with target dead.
+        if (params.length && !this.state.data.active) {
             console.log("It's over man.");
             return;
         }
@@ -197,7 +228,9 @@ var Game = React.createClass({
         var mode_options = ["move", "add_player", "add_opponent", "remove"];
         return (
             <div className="game row">
-                <Board data={this.state.data.rows} onMove={this.handleMove} mode={this.state.mode} />
+                <div className="col-md-6">
+                    <Board data={this.state.data.rows} onMove={this.handleMove} mode={this.state.mode} white_to_play={this.state.data.white_to_play} />
+                </div>
                 <div className="col-md-6">
                     <PassButton onMove={this.handleMove} />
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
