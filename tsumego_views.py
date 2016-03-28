@@ -87,11 +87,19 @@ class TsumegoJSONView(View):
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
 
-        result = state.to_json()
+        result = {}
         if self.request.GET.get("value"):
-            try:
-                result["result"] = get_result(state)
-            except TsumegoError as e:
-                return JsonResponse({"error": e.message})
+            value, children = query(state, reverse_target=bool(add_player))
+            if not value.valid:
+                return JsonResponse({"error": value.error})
+            result["value"] = value.to_json()
+            # TODO: Add prisoners and make usable by the frontend.
+            for move, child in children.items():
+                children[move] = child.to_json()
+            result["value"]["children"] = children
+            result["result"] = format_value(state, value)
+
+        state.fix_targets()
+        result.update(state.to_json())
 
         return JsonResponse(result)

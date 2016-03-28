@@ -20,6 +20,8 @@ NORTH_WALL = (1 << WIDTH) - 1
 WEST_WALL = 0x40201008040201
 WEST_BLOCK = 0X3FDFEFF7FBFDFEFF
 
+TARGET_SCORE = 63
+
 
 def rectangle(width, height):
     r = 0
@@ -45,6 +47,17 @@ def flood(source, target):
         if temp == source:
             break
     return source
+
+
+def chains(stones):
+    result = []
+    for i in range(STATE_SIZE):
+        m = 1 << i
+        if m & stones:
+            chain = flood(m, stones)
+            result.append(chain)
+            stones ^= chain
+    return result
 
 
 def north(stones):
@@ -218,17 +231,34 @@ class State(object):
         self.player &= ~move
         self.opponent &= ~move
 
+    @property
     def target_dead(self):
         return bool(self.target & ~(self.player | self.opponent))
 
     @property
     def active(self):
-        return self.passes < 2 and not self.target_dead()
+        return self.passes < 2 and not self.target_dead
 
     def swap_players(self):
         self.player, self.opponent = (self.opponent, self.player)
         self.ko_threats = -self.ko_threats
         self.white_to_play = not self.white_to_play
+
+    def fix_targets(self):
+        """
+        Kill targets without liberties.
+        """
+        player_dead = False
+        opponent_dead = False
+        for chain in chains(self.player & self.target):
+            if not liberties(chain, self.playing_area & ~self.opponent) and not (chain & self.immortal):
+                self.player ^= chain
+                player_dead = True
+        for chain in chains(self.opponent & self.target):
+            if not liberties(chain, self.playing_area & ~self.player) and not (chain & self.immortal):
+                self.opponent ^= chain
+                opponent_dead = True
+        return player_dead, opponent_dead
 
     def render(self):
         if self.white_to_play:
@@ -494,6 +524,17 @@ class NodeValue(object):
     def valid(self):
         return (self.low <= self.high and self.low_distance >= 0 and self.high_distance >= 0)
 
+    @property
+    def error(self):
+        if self.low > self.high:
+            if self.low_distance and self.high_distance:
+                return "Tsumego not in DB"
+            if not self.low_distance:
+                return "Invalid layer"
+            if not self.high_distance:
+                return "Invalid key"
+        return ""
+
     def low_child(self, other, prisoners=0):
         return -other.high + prisoners == self.low and other.high_distance + 1 == self.low_distance
 
@@ -503,6 +544,13 @@ class NodeValue(object):
     def __repr__(self):
         return "%s(%d, %d, %d, %d)" % (self.__class__.__name__, self.low, self.high, self.low_distance, self.high_distance)
 
+    def to_json(self):
+        return {
+            "low": self.low,
+            "high": self.high,
+            "low_distance": self.low_distance,
+            "high_distance": self.high_distance,
+        }
 
 _QUERY = None
 BASE_STATES = {"design": State(rectangle(9, 7))}
@@ -531,10 +579,22 @@ def init_query():
     return BASE_STATES
 
 
-def query(state):
+def query(state, reverse_target=False):
     os.chdir(settings.TSUMEGO_QUERY_PATH)
     if _QUERY is None:
         raise ValueError("Call init_query first")
+    player_dead, opponent_dead = state.fix_targets()
+    if player_dead and opponent_dead:
+        raise ValueError("Inconsistent target kill")
+    if player_dead:
+        return NodeValue(-TARGET_SCORE, -TARGET_SCORE, 0, 0), {}
+    elif opponent_dead:
+        return NodeValue(TARGET_SCORE, TARGET_SCORE, 0, 0), {}
+    if state.target_dead:
+        if reverse_target:
+            return NodeValue(TARGET_SCORE, TARGET_SCORE, 0, 0), {}
+        else:
+            return NodeValue(-TARGET_SCORE, -TARGET_SCORE, 0, 0), {}
     _QUERY.sendline(state.dump())
     _QUERY.expect("-?\d+ -?\d+ \d+ \d+")
     out = map(int, _QUERY.after.split(" "))
@@ -583,7 +643,7 @@ def format_value(state, value):
 def get_result(state):
     value, children = query(state)
     if not value.valid:
-        raise TsumegoError("Tsumego not in DB")
+        raise TsumegoError(value.error)
     return format_value(state, value)
 
 
@@ -604,7 +664,7 @@ def get_full_result(state):
 def make_book_move(state):
     value, children = query(state)
     if not value.valid:
-        raise TsumegoError("Tsumego not in DB")
+        raise TsumegoError(value.error)
     random.shuffle(state.moves)
     for move in state.moves:
         if move not in children:

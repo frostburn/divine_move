@@ -50,7 +50,8 @@ var Cell = React.createClass({
 
 var Row = React.createClass({
     render: function() {
-        var cells = this.props.data.map((stone) => (
+        var {data, ...rest} = this.props;
+        var cells = data.map((stone) => (
             <Cell 
                 color={stone.color}
                 vertical={stone.ver}
@@ -59,9 +60,7 @@ var Row = React.createClass({
                 o_move={stone.o_move}
                 coords={stone.coords}
                 key={stone.coords}
-                onMove={this.props.onMove}
-                mode={this.props.mode}
-                white_to_play={this.props.white_to_play}
+                {...rest}
             />
         ));
 
@@ -75,13 +74,12 @@ var Row = React.createClass({
 
 var Board = React.createClass({
     render: function() {
-        var rows = this.props.data.map((row) => (
+        var {data, ...rest} = this.props;
+        var rows = data.map((row) => (
             <Row
                 data={row.stones}
                 key={row.id}
-                onMove={this.props.onMove}
-                mode={this.props.mode}
-                white_to_play={this.props.white_to_play}
+                {...rest}
             />
         ));
         return (
@@ -144,8 +142,8 @@ var StatusRow = React.createClass({
         var data = this.props.data;
         return <p>
             Passes: {data.passes}<br />
-            Black captures: {data.black_prisoners}<br />
-            White captures: {data.white_prisoners}<br />
+            Captures by Black: {data.white_prisoners}<br />
+            Captures by White: {data.black_prisoners}<br />
             Result: {data.result}
         </p>
     }
@@ -172,7 +170,6 @@ function handle_error(data) {
 
 var Game = React.createClass({
     doFetch: function(params) {
-        // TODO: Fix with target dead.
         if (params.length && !this.state.data.active) {
             console.log("It's over man.");
             return;
