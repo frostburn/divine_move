@@ -94,6 +94,32 @@ def to_coord_list(stones):
     return result
 
 
+def to_coords(move):
+    if not move:
+        return "pass"
+    if popcount(move) != 1:
+        raise ValueError("Not a single stone move")
+    return "_".join(map(str, to_coord_list(move)[0]))
+
+
+def render_stones(stones):
+    r = u""
+    for y in xrange(HEIGHT):
+        r += str(y)
+        for x in xrange(WIDTH):
+            m = 1 << (x + y * V_SHIFT)
+            r += u"\x1b[0;30;43m"  # Yellow bg
+            if stones & m:
+                r += u"\x1b[30m ●"
+            else:
+                r += u"\x1b[30m ·";
+        r += u"\x1b[0m\n"
+    r += u" "
+    for x in xrange(WIDTH):
+        r += u" " + ALPHA[x]
+    return r
+
+
 class TsumegoError(Exception):
     pass
 
@@ -148,6 +174,14 @@ class State(object):
             self.white_prisoners,
         )
 
+    def _kill_chain(self, chain):
+        empty = self.playing_area & ~self.player
+        if not liberties(chain, empty) and not (chain & self.immortal):
+            self.opponent ^= chain
+            if not (chain & self.target):
+                return chain
+        return 0
+
     def make_move(self, move):
         old_player = self.player
         if not move:
@@ -160,7 +194,7 @@ class State(object):
             self.ko_threats = -self.ko_threats
             self.white_to_play = not self.white_to_play
             return True, 0
-        
+
         old_opponent = self.opponent
         old_ko = self.ko
         old_ko_threats = self.ko_threats
@@ -168,29 +202,21 @@ class State(object):
             if self.ko_threats <= 0:
                 return False, 0
             self.ko_threats -= 1
-        
+
         if move & (self.player | self.opponent | ~self.playing_area):
             return False, 0
-        
+
         self.player |= move
         kill = 0
         empty = self.playing_area & ~self.player
         chain = flood(north(move), self.opponent)
-        if not liberties(chain, empty) and not (chain & self.immortal):
-            kill |= chain
-            self.opponent ^= chain
+        kill |= self._kill_chain(chain)
         chain = flood(south(move), self.opponent)
-        if not liberties(chain, empty) and not (chain & self.immortal):
-            kill |= chain
-            self.opponent ^= chain
+        kill |= self._kill_chain(chain)
         chain = flood(west(move), self.opponent)
-        if not liberties(chain, empty) and not (chain & self.immortal):
-            kill |= chain
-            self.opponent ^= chain
+        kill |= self._kill_chain(chain)
         chain = flood(east(move), self.opponent)
-        if not liberties(chain, empty) and not (chain & self.immortal):
-            kill |= chain
-            self.opponent ^= chain
+        kill |= self._kill_chain(chain)
 
         self.ko = 0
         num_kill = popcount(kill)
@@ -541,6 +567,10 @@ class NodeValue(object):
     def high_child(self, other, prisoners=0):
         return -other.low + prisoners == self.high and other.low_distance + 1 == self.high_distance
 
+    def add_prisoners(self, prisoners):
+        self.low -= prisoners
+        self.high -= prisoners
+
     def __repr__(self):
         return "%s(%d, %d, %d, %d)" % (self.__class__.__name__, self.low, self.high, self.low_distance, self.high_distance)
 
@@ -630,7 +660,7 @@ def get_coords():
 
 def format_value(state, value):
     if state.white_to_play:
-        result = -value.high + state.white_prisoners - state.black_prisoners
+        result = -value.low + state.white_prisoners - state.black_prisoners
     else:
         result = value.low + state.white_prisoners - state.black_prisoners
     if result < 0:

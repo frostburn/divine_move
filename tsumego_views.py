@@ -45,6 +45,7 @@ class TsumegoView(TemplateView):
         context = super(TsumegoView, self).get_context_data(*args, **kwargs)
         base_states = init_query()
         state = base_states[kwargs["name"]].from_code(kwargs["code"])
+        state.ko_threats = int(self.request.GET.get("ko_threats", "0"))
         context["tsumego_name"] = kwargs["name"]
         state_json = state.to_json()
         # state_json["result"] = get_result(state)
@@ -80,7 +81,6 @@ class TsumegoJSONView(View):
         if remove:
             state.remove(parse_move(remove))
 
-        # Check that the state is still active.
         if self.request.GET.get("vs_book"):
             try:
                 make_book_move(state)
@@ -93,10 +93,13 @@ class TsumegoJSONView(View):
             if not value.valid:
                 return JsonResponse({"error": value.error})
             result["value"] = value.to_json()
-            # TODO: Add prisoners and make usable by the frontend.
-            for move, child in children.items():
-                children[move] = child.to_json()
-            result["value"]["children"] = children
+            child_results = []
+            for move, child_value in children.items():
+                child = state.copy()
+                valid, prisoners = child.make_move(move)
+                assert valid
+                child_results.append([to_coords(move), format_value(child, child_value)])
+            result["value"]["children"] = child_results
             result["result"] = format_value(state, value)
 
         state.fix_targets()

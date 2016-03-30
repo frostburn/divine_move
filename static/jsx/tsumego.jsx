@@ -140,12 +140,28 @@ var RadioGroup = React.createClass({
 var StatusRow = React.createClass({
     render: function() {
         var data = this.props.data;
-        return <p>
-            Passes: {data.passes}<br />
-            Captures by Black: {data.white_prisoners}<br />
-            Captures by White: {data.black_prisoners}<br />
-            Result: {data.result}
-        </p>
+        return (
+            <p>
+                Passes: {data.passes}<br />
+                Captures by Black: {data.white_prisoners}<br />
+                Captures by White: {data.black_prisoners}<br />
+                Result: {data.result}
+            </p>
+        );
+    }
+});
+
+var ChildResults = React.createClass({
+    render: function() {
+        var results = this.props.results.map(function(result) {
+            var coords = result[0];
+            return (<p key={coords}>{coords + ":" + result[1]}</p>);
+        });
+        return (
+            <div>
+                {results}
+            </div>
+        );
     }
 });
 
@@ -223,17 +239,24 @@ var Game = React.createClass({
     },
     render: function() {
         var mode_options = ["move", "add_player", "add_opponent", "remove"];
+        var child_results = [];
+        if (this.state.data.value !== undefined) {
+            child_results = this.state.data.value.children;
+        }
         return (
             <div className="game row">
-                <div className="col-md-6">
+                <div className="col-md-5">
                     <Board data={this.state.data.rows} onMove={this.handleMove} mode={this.state.mode} white_to_play={this.state.data.white_to_play} />
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-4">
                     <PassButton onMove={this.handleMove} />
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
                     <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatusRow data={this.state.data} />
+                </div>
+                <div className="col-md-3">
+                    <ChildResults results={child_results} />
                 </div>
             </div>
         );
