@@ -170,7 +170,8 @@ var StatusRow = React.createClass({
                 Passes: {data.passes}<br />
                 Captures by Black: {data.white_prisoners}<br />
                 Captures by White: {data.black_prisoners}<br />
-                Result: {data.result}
+                Result: {data.result}<br />
+                Code: <a href={data.tsumego_url}>{data.code}</a>
             </p>
         );
     }
@@ -273,6 +274,9 @@ var Game = React.createClass({
     handleModeChange: function(mode) {
         this.setState({"mode": mode});
     },
+    handleReset: function() {
+        this.setState({"data": this.props.data});
+    },
     getInitialState: function() {
         return {
             data: this.props.data,
@@ -307,6 +311,7 @@ var Game = React.createClass({
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
                     <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatusRow data={this.state.data} />
+                    <Button label="Reset" onClick={this.handleReset} />
                 </div>
                 <div className="col-md-4">
                     <ChildResults results={child_results} height={this.props.data.height} />

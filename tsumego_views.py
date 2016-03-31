@@ -22,6 +22,12 @@ def parse_move(move):
     return 1 << (x + V_SHIFT * y)
 
 
+def get_state_json(state, name):
+    state_json = state.to_json()
+    state_json["tsumego_url"] = reverse('tsumego', kwargs={'name': name, 'code': state_json["code"]})
+    return state_json
+
+
 class TsumegoResetView(View):
     def get(self, request):
         return HttpResponse(reset_query())
@@ -33,7 +39,8 @@ class TsumegoIndexView(View):
         content = '<html><body>'
         for name in sorted(base_states.keys()):
             content += '<a href="' + reverse('tsumego_empty', kwargs={'name': name}) + '">' + name + '</a><br>'
-            print base_states[name].render()
+            if settings.LOCAL_DEBUG:
+                print base_states[name].render()
         content += '</body></html>'
         return HttpResponse(content)
 
@@ -59,9 +66,7 @@ class TsumegoView(TemplateView):
         state = base_states[kwargs["name"]].from_code(kwargs["code"])
         state.ko_threats = int(self.request.GET.get("ko_threats", "0"))
         context["tsumego_name"] = kwargs["name"]
-        state_json = state.to_json()
-        # state_json["result"] = get_result(state)
-        context["state"] = json.dumps(state_json)
+        context["state"] = json.dumps(get_state_json(state, kwargs["name"]))
         return context
 
 
@@ -128,6 +133,6 @@ class TsumegoJSONView(View):
             result["result"] = format_value(state, value)
 
         state.fix_targets()
-        result.update(state.to_json())
+        result.update(get_state_json(state, kwargs["name"]))
 
         return JsonResponse(result)

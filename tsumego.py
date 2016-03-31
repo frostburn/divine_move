@@ -619,10 +619,10 @@ def init_query():
             BASE_STATES[name] = State.load(_QUERY.after)
             _QUERY.expect("\d")
             LAYERS.append(int(_QUERY.after))
-            if settings.DEBUG:
+            if settings.LOCAL_DEBUG:
                 print BASE_STATES[name].render()
         _QUERY.expect("Solutions loaded.")
-        if settings.DEBUG:
+        if settings.LOCAL_DEBUG:
             print "Solutions loaded"
     return BASE_STATES
 
