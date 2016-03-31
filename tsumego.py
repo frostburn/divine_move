@@ -96,10 +96,10 @@ def to_coord_list(stones):
 
 def to_coords(move):
     if not move:
-        return "pass"
+        return []
     if popcount(move) != 1:
         raise ValueError("Not a single stone move")
-    return "_".join(map(str, to_coord_list(move)[0]))
+    return to_coord_list(move)[0]
 
 
 def render_stones(stones):
@@ -158,6 +158,8 @@ class State(object):
             if width or row_widths:
                 row_widths.append(width)
         self.row_widths = row_widths[::-1]
+        self.width = max(row_widths)
+        self.height = len(row_widths)
 
     def copy(self):
         return State(
@@ -181,6 +183,16 @@ class State(object):
             if not (chain & self.target):
                 return chain
         return 0
+
+    def empty(self):
+        fixed = self.target | self.immortal
+        self.player &= fixed
+        self.opponent &= fixed
+        self.ko = 0
+        self.passes = 0
+        self.ko_threats = 0
+        self.black_prisoners = 0
+        self.white_prisoners = 0
 
     def make_move(self, move):
         old_player = self.player
@@ -514,7 +526,7 @@ class State(object):
                     stone["o_move"] = True
                 row.append(stone)
             rows.append({
-                "id": "row_%d" % j,
+                "index": j,
                 "stones": row,
             })
 
@@ -527,6 +539,8 @@ class State(object):
             "white_prisoners": self.white_prisoners,
             "active": self.active,
             "rows": rows,
+            "width": self.width,
+            "height": self.height,
             "dump": self.dump(),
         }
 
@@ -601,11 +615,15 @@ def init_query():
         filenames = [name + "_japanese.dat" for name in settings.TSUMEGO_NAMES]
         _QUERY = pexpect.spawn("./query " + " ".join(filenames), echo=False)
         for name in settings.TSUMEGO_NAMES:
-            _QUERY.expect(" ".join(["\d+"] * 9))
+            _QUERY.expect(" ".join(["-?\d+"] * 9))
             BASE_STATES[name] = State.load(_QUERY.after)
             _QUERY.expect("\d")
             LAYERS.append(int(_QUERY.after))
+            if settings.DEBUG:
+                print BASE_STATES[name].render()
         _QUERY.expect("Solutions loaded.")
+        if settings.DEBUG:
+            print "Solutions loaded"
     return BASE_STATES
 
 
@@ -691,7 +709,7 @@ def get_full_result(state):
     return r
 
 
-def make_book_move(state):
+def make_book_move(state, low=False):
     value, children = query(state)
     if not value.valid:
         raise TsumegoError(value.error)
@@ -703,7 +721,9 @@ def make_book_move(state):
         valid, prisoners = child.make_move(move)
         if valid:
             child_value = children[move]
-            if value.high_child(child_value, prisoners):
+            high_child = value.high_child(child_value, prisoners)
+            low_child = value.low_child(child_value, prisoners)
+            if (low_child if low else high_child):
                 state.make_move(move)
                 return child_value
 

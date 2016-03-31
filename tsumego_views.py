@@ -7,6 +7,7 @@ import subprocess
 
 from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
+from django.core.urlresolvers import reverse
 from django.http import HttpResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, resolve_url
 from django.views.generic import RedirectView, View, TemplateView
@@ -26,6 +27,17 @@ class TsumegoResetView(View):
         return HttpResponse(reset_query())
 
 
+class TsumegoIndexView(View):
+    def get(self, request, *args, **kwargs):
+        base_states = init_query()
+        content = '<html><body>'
+        for name in sorted(base_states.keys()):
+            content += '<a href="' + reverse('tsumego_empty', kwargs={'name': name}) + '">' + name + '</a><br>'
+            print base_states[name].render()
+        content += '</body></html>'
+        return HttpResponse(content)
+
+
 class TsumegoEmptyView(RedirectView):
     permanent = False
     pattern_name = "tsumego"
@@ -33,7 +45,7 @@ class TsumegoEmptyView(RedirectView):
     def get_redirect_url(self, *args, **kwargs):
         base_states = init_query()
         state = base_states[kwargs["name"]].copy()
-        state.ko_threats = 0
+        state.empty()
         kwargs["code"] = state.to_code()
         return super(TsumegoEmptyView, self).get_redirect_url(*args, **kwargs)
 
@@ -81,11 +93,20 @@ class TsumegoJSONView(View):
         if remove:
             state.remove(parse_move(remove))
 
+        if self.request.GET.get("book"):
+            try:
+                make_book_move(state, low=True)
+            except TsumegoError as e:
+                return JsonResponse({"error": e.message})
+
         if self.request.GET.get("vs_book"):
             try:
                 make_book_move(state)
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
+
+        if self.request.GET.get("swap"):
+            state.swap_players()
 
         result = {}
         if self.request.GET.get("value"):
@@ -98,7 +119,11 @@ class TsumegoJSONView(View):
                 child = state.copy()
                 valid, prisoners = child.make_move(move)
                 assert valid
-                child_results.append([to_coords(move), format_value(child, child_value)])
+                child_results.append([
+                    to_coords(move),
+                    format_value(child,child_value),
+                    value.low_child(child_value, prisoners),
+                ])
             result["value"]["children"] = child_results
             result["result"] = format_value(state, value)
 

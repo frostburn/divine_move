@@ -1,3 +1,5 @@
+var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J"];
+
 var Cell = React.createClass({
     handleClick: function(e) {
         e.preventDefault();
@@ -63,7 +65,22 @@ var Row = React.createClass({
                 {...rest}
             />
         ));
+        cells.unshift(<div className="cell alpha number" key="label">{this.props.label}</div>);
 
+        return (
+            <div className="stone-row">
+                {cells}
+            </div>
+        );
+    }
+});
+
+var CoordRow = React.createClass({
+    render: function() {
+        var cells = [<div className="cell" key="empty" />];
+        for (var i = 0; i < this.props.width; i++) {
+            cells.push(<div className="cell alpha" key={ALPHA[i]}>{ALPHA[i]}</div>);
+        }
         return (
             <div className="stone-row">
                 {cells}
@@ -74,17 +91,19 @@ var Row = React.createClass({
 
 var Board = React.createClass({
     render: function() {
-        var {data, ...rest} = this.props;
+        var {data, width, height, ...rest} = this.props;
         var rows = data.map((row) => (
             <Row
                 data={row.stones}
-                key={row.id}
+                label={this.props.height - row.index}
+                key={row.index}
                 {...rest}
             />
         ));
         return (
             <div className="board">
                 {rows}
+                <CoordRow width={width} />
             </div>
         );
     }
@@ -97,6 +116,12 @@ var PassButton = React.createClass({
     },
     render: function() {
         return <button className="btn btn-default" onClick={this.handleClick}>Pass</button>
+    }
+});
+
+var Button = React.createClass({
+    render: function() {
+        return <button className="btn btn-default" onClick={this.props.onClick}>{this.props.label}</button>
     }
 });
 
@@ -153,9 +178,18 @@ var StatusRow = React.createClass({
 
 var ChildResults = React.createClass({
     render: function() {
-        var results = this.props.results.map(function(result) {
-            var coords = result[0];
-            return (<p key={coords}>{coords + ":" + result[1]}</p>);
+        var that = this;
+        var results = this.props.results.map(function(row) {
+            var coords = row[0];
+            if (coords.length) {
+                coords = ALPHA[coords[0]] + (that.props.height - coords[1]);
+            }
+            else {
+                coords = "pass";
+            }
+            var result = row[1];
+            var best = row[2];
+            return (<p className={best ? "best-result" : ""} key={coords}>{coords + ": " + result}</p>);
         });
         return (
             <div>
@@ -217,6 +251,16 @@ var Game = React.createClass({
         }
         this.doFetch(params);
     },
+    handleSwap: function() {
+        this.doFetch("&swap=1");
+    },
+    handleBook: function() {
+        var params = "&book=1";
+        if (this.state.vs_book) {
+            params += "&vs_book=1";
+        }
+        this.doFetch(params);
+    },
     handleValueChange: function() {
         // Have to mutate here so that doFetch works correctly.
         this.state.value = !this.state.value;
@@ -246,17 +290,26 @@ var Game = React.createClass({
         return (
             <div className="game row">
                 <div className="col-md-5">
-                    <Board data={this.state.data.rows} onMove={this.handleMove} mode={this.state.mode} white_to_play={this.state.data.white_to_play} />
+                    <Board
+                        data={this.state.data.rows}
+                        onMove={this.handleMove}
+                        mode={this.state.mode}
+                        white_to_play={this.state.data.white_to_play}
+                        width={this.props.data.width}
+                        height={this.props.data.height}
+                    />
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-3">
                     <PassButton onMove={this.handleMove} />
+                    <Button label="Swap" onClick={this.handleSwap} />
+                    <Button label="Book" onClick={this.handleBook} />
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
                     <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatusRow data={this.state.data} />
                 </div>
-                <div className="col-md-3">
-                    <ChildResults results={child_results} />
+                <div className="col-md-4">
+                    <ChildResults results={child_results} height={this.props.data.height} />
                 </div>
             </div>
         );
