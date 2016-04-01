@@ -1,11 +1,14 @@
 @cell_size: 42px;
 @stone_size: @cell_size * 0.85;
 @board_padding: 5px;
+@ko_color: #333;
 @dot_size: 5px;
 @board_color: #db7;
 @line_color: darken(@board_color, 50%);
 @font_size: @cell_size * 0.8;
 @font_color: darken(@board_color, 50%);
+@last_size: @cell_size * 0.6;
+@last_color: red;
 
 .best-result {
     font-weight: bold;
@@ -50,7 +53,7 @@
             .ko {
                 border-width: 3px;
                 border-style: solid;
-                border-color: #333;
+                border-color: @ko_color;
                 border-radius: 2px;
             }
 
@@ -108,10 +111,21 @@
                 width: 50%;
             }
 
-            .dot {
+            .d {
                 width: @dot_size;
                 height: @dot_size;
                 border-radius: 50%;
+            }
+
+            .last-move {
+                .line();
+                background-color: transparent;
+                width: @last_size;
+                height: @last_size;
+                border-color: @last_color;
+                border-radius: 50%;
+                border-width: 3px;
+                border-style: solid;
             }
         }
         .alpha {

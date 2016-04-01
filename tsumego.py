@@ -148,6 +148,8 @@ class State(object):
             if move & open_area:
                 self.moves.append(move)
 
+        self.last_move = -1
+
         row_widths = []
         for j in reversed(range(HEIGHT)):
             width = 0
@@ -195,6 +197,8 @@ class State(object):
         self.white_prisoners = 0
 
     def make_move(self, move):
+        if not self.active:
+            return False, 0
         old_player = self.player
         if not move:
             if self.ko:
@@ -205,6 +209,7 @@ class State(object):
             self.opponent = old_player
             self.ko_threats = -self.ko_threats
             self.white_to_play = not self.white_to_play
+            self.last_move = move
             return True, 0
 
         old_opponent = self.opponent
@@ -254,6 +259,7 @@ class State(object):
         self.opponent = old_player
         self.ko_threats = -self.ko_threats
         self.white_to_play = not self.white_to_play
+        self.last_move = move
         return True, num_kill
 
     def add_player(self, move):
@@ -485,15 +491,16 @@ class State(object):
         for j in range(len(self.row_widths)):
             row = []
             for i in range(self.row_widths[j]):
+                # Most of the JSON response is stone data so we compress it to single letters in the interest of bandwidth.
                 m = 1 << (i + j * V_SHIFT)
                 if m & black:
-                    color = "black"
+                    color = "b"
                 elif m & white:
-                    color = "white"
+                    color = "w"
                 elif m & self.ko:
-                    color = "ko"
+                    color = "k"
                 else:
-                    color = "none"
+                    color = "n"
 
                 pa = self.playing_area
                 horizontal = ""
@@ -509,26 +516,39 @@ class State(object):
                         vertical += "s"
 
                 stone = {
-                    "color": color,
-                    "coords": "%d_%d" % (i, j),
+                    "c": color,
+                    "x": "%d_%d" % (i, j),
                 }
                 if vertical:
-                    stone["ver"] = vertical
+                    stone["v"] = vertical
                     if not horizontal:
-                        stone["hor"] = "dot"
+                        stone["h"] = "d"
                 if horizontal:
-                    stone["hor"] = horizontal
+                    stone["h"] = horizontal
                     if not vertical:
-                        stone["ver"] = "dot"
+                        stone["v"] = "d"
                 if m & moves:
-                    stone["move"] = True
+                    stone["m"] = True
                 if m & o_moves:
-                    stone["o_move"] = True
+                    stone["o"] = True
+                if (self.last_move > 0) and (m & self.last_move):
+                    stone["l"] = True
                 row.append(stone)
             rows.append({
                 "index": j,
                 "stones": row,
             })
+
+        status = ""
+        if not self.last_move:
+            if self.passes == 0:
+                status = "The opponent passed clearing a ko."
+            elif self.passes == 1:
+                status = "The opponent passed."
+            else:
+                status = "The game has ended."
+        if self.target_dead:
+            status = "Target eliminated."
 
         result = {
             "code": self.to_code(),
@@ -538,6 +558,7 @@ class State(object):
             "black_prisoners": self.black_prisoners,
             "white_prisoners": self.white_prisoners,
             "active": self.active,
+            "status": status,
             "rows": rows,
             "width": self.width,
             "height": self.height,
@@ -547,10 +568,16 @@ class State(object):
         return result
 
     @classmethod
-    def load(cls, d):
-        instance = cls(*map(int, d.split(" ")))
+    def load(cls, dump):
+        instance = cls(*map(int, dump.split(" ")))
         instance.white_to_play = bool(instance.white_to_play)
         return instance
+
+    def update(self, dump):
+        other = State.load(dump)
+        self.player = other.player
+        self.opponent = other.opponent
+        self.ko = other.ko
 
 
 class NodeValue(object):

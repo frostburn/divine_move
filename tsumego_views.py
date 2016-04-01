@@ -79,6 +79,13 @@ class TsumegoJSONView(View):
         except TsumegoError as e:
             return JsonResponse({"error": e.message})
 
+        dump = self.request.GET.get("dump")
+        if dump:
+            try:
+                state.update(dump)
+            except TsumegoError as e:
+                return JsonResponse({"error": e.message})
+
         move = self.request.GET.get("move")
         if move:
             # TODO: check that move can be parsed

@@ -25,9 +25,23 @@ var Cell = React.createClass({
         if (this.props.horizontal) {
             children.push(<span className={"horizontal " + this.props.horizontal} key="horizontal"/>);
         }
+        var color;
+        switch(this.props.color) {
+            case "b":
+                color = "black";
+                break;
+            case "w":
+                color = "white";
+                break;
+            case "k":
+                color = "ko";
+                break;
+            default:
+                color = "none";
+        }
         var color_to_play = this.props.white_to_play ? "white" : "black";
         var opponent_color = this.props.white_to_play ? "black" : "white";
-        var class_name = this.props.color + " stone";
+        var class_name = color + " stone";
         if (this.props.mode === "remove") {
             // pass
         }
@@ -41,7 +55,10 @@ var Cell = React.createClass({
                 class_name += " " + color_to_play + "-move";
             }
         }
-        children.push(<span className={class_name} key="stone"/>);
+        children.push(<span className={class_name} key="stone" />);
+        if (this.props.last) {
+            children.push(<span className="last-move" key="last" />);
+        }
         return (
             <div className="cell" onClick={this.handleClick}>
                 {children}
@@ -55,13 +72,14 @@ var Row = React.createClass({
         var {data, ...rest} = this.props;
         var cells = data.map((stone) => (
             <Cell 
-                color={stone.color}
-                vertical={stone.ver}
-                horizontal={stone.hor}
-                move={stone.move}
-                o_move={stone.o_move}
-                coords={stone.coords}
-                key={stone.coords}
+                color={stone.c}
+                vertical={stone.v}
+                horizontal={stone.h}
+                move={stone.m}
+                o_move={stone.o}
+                coords={stone.x}
+                key={stone.x}
+                last={stone.l}
                 {...rest}
             />
         ));
@@ -162,7 +180,7 @@ var RadioGroup = React.createClass({
     }
 });
 
-var StatusRow = React.createClass({
+var StatsPanel = React.createClass({
     render: function() {
         var data = this.props.data;
         return (
@@ -172,6 +190,16 @@ var StatusRow = React.createClass({
                 Captures by White: {data.black_prisoners}<br />
                 Result: {data.result}<br />
                 Code: <a href={data.tsumego_url}>{data.code}</a>
+            </p>
+        );
+    }
+});
+
+var StatusRow = React.createClass({
+    render: function() {
+        return (
+            <p>
+                {this.props.status}
             </p>
         );
     }
@@ -228,6 +256,9 @@ var Game = React.createClass({
         var that = this;
         if (this.state.value) {
             params += "&value=1";
+        }
+        if (!this.state.data.active) {
+            params += "&dump=" + escape(this.state.data.dump);
         }
         fetch(window.json_url + "?code=" + escape(this.state.data.code) + params)
         .then(handle_status)
@@ -302,6 +333,7 @@ var Game = React.createClass({
                         width={this.props.data.width}
                         height={this.props.data.height}
                     />
+                    <StatusRow status={this.state.data.status} />
                 </div>
                 <div className="col-md-3">
                     <PassButton onMove={this.handleMove} />
@@ -310,7 +342,7 @@ var Game = React.createClass({
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
                     <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
-                    <StatusRow data={this.state.data} />
+                    <StatsPanel data={this.state.data} />
                     <Button label="Reset" onClick={this.handleReset} />
                 </div>
                 <div className="col-md-4">
