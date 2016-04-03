@@ -63,10 +63,17 @@ class TsumegoView(TemplateView):
     def get_context_data(self, *args, **kwargs):
         context = super(TsumegoView, self).get_context_data(*args, **kwargs)
         base_states = init_query()
-        state = base_states[kwargs["name"]].from_code(kwargs["code"])
-        state.ko_threats = int(self.request.GET.get("ko_threats", "0"))
+        base_state = base_states.get(kwargs["name"])
+        if not base_state:
+            raise Http404("Tsumego not found.")
+        state = base_state.from_code(kwargs["code"])
+        ko_threats = int(self.request.GET.get("ko_threats", "0"))
+        if not (state.min_ko_threats <= ko_threats <= state.max_ko_threats):
+            raise Http404("Tsumego not found. Too many ko threats.")
+        state.ko_threats = ko_threats
         context["tsumego_name"] = kwargs["name"]
-        context["state"] = json.dumps(get_state_json(state, kwargs["name"]))
+        state_json = get_state_json(state, kwargs["name"])
+        context["state"] = json.dumps(state_json)
         return context
 
 
@@ -87,6 +94,13 @@ class TsumegoJSONView(View):
                 state.update(dump)
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
+
+        ko_threats = srg("ko_threats")
+        if ko_threats:
+            ko_threats = int(ko_threats)
+            if not (state.min_ko_threats <= ko_threats <= state.max_ko_threats):
+                return JsonResponse({"error": "Invalid ko threats"})
+            state.ko_threats = ko_threats
 
         move = srg("move")
         if move:

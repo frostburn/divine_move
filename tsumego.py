@@ -127,7 +127,22 @@ class TsumegoError(Exception):
 class State(object):
     num_code_chars = 63
 
-    def __init__(self, playing_area, player=0, opponent=0, ko=0, target=0, immortal=0, passes=0, ko_threats=0, white_to_play=False, captures_by_player=0, captures_by_opponent=0):
+    def __init__(
+            self,
+            playing_area,
+            player=0,
+            opponent=0,
+            ko=0,
+            target=0,
+            immortal=0,
+            passes=0,
+            ko_threats=0,
+            white_to_play=False,
+            captures_by_player=0,
+            captures_by_opponent=0,
+            min_ko_threats=float("-inf"),
+            max_ko_threats=float("inf"),
+        ):
         self.playing_area = playing_area
         self.player = player
         self.opponent = opponent
@@ -140,6 +155,9 @@ class State(object):
 
         self.captures_by_player = captures_by_player
         self.captures_by_opponent = captures_by_opponent
+
+        self.min_ko_threats = min_ko_threats
+        self.max_ko_threats = max_ko_threats
 
         open_area = playing_area & ~(target | immortal)
         self.moves = [0]
@@ -176,15 +194,9 @@ class State(object):
             self.white_to_play,
             self.captures_by_player,
             self.captures_by_opponent,
+            self.min_ko_threats,
+            self.max_ko_threats,
         )
-
-    def _kill_chain(self, chain):
-        empty = self.playing_area & ~self.player
-        if not liberties(chain, empty) and not (chain & self.immortal):
-            self.opponent ^= chain
-            if not (chain & self.target):
-                return chain
-        return 0
 
     def empty(self):
         fixed = self.target | self.immortal
@@ -196,11 +208,33 @@ class State(object):
         self.captures_by_player = 0
         self.captures_by_opponent = 0
 
+    def set_layers(self, num_layers):
+        if abs(self.ko_threats) >= num_layers:
+            raise ValueError("Not enough layers to reach zero ko threats")
+        if self.ko_threats > 0:
+            self.min_ko_threats = self.ko_threats - num_layers + 1
+            self.max_ko_threats = self.ko_threats
+        elif self.ko_threats < 0:
+            self.min_ko_threats = self.ko_threats
+            self.max_ko_threats = self.ko_threats + num_layers - 1
+        else:
+            self.min_ko_threats = 0
+            self.max_ko_threats = 0
+
+    def _kill_chain(self, chain):
+        empty = self.playing_area & ~self.player
+        if not liberties(chain, empty) and not (chain & self.immortal):
+            self.opponent ^= chain
+            if not (chain & self.target):
+                return chain
+        return 0
+
     def swap_players(self):
         self.player, self.opponent = (self.opponent, self.player)
         self.ko_threats = -self.ko_threats
         self.white_to_play = not self.white_to_play
         self.captures_by_player, self.captures_by_opponent = (self.captures_by_opponent, self.captures_by_player)
+        self.min_ko_threats, self.max_ko_threats = -self.max_ko_threats, -self.min_ko_threats
 
     def make_move(self, move):
         if not self.active:
@@ -442,6 +476,7 @@ class State(object):
                 white |= m
         if other.white_to_play != self.white_to_play:
             other.player, other.opponent = other.opponent, other.player
+            other.min_ko_threats, other.max_ko_threats = -other.max_ko_threats, -other.min_ko_threats
         if other.white_to_play:
             other.player |= white
             other.opponent |= black
@@ -542,13 +577,12 @@ class State(object):
             })
 
         status = ""
-        if not self.last_move:
-            if self.passes == 0:
-                status = "The opponent passed clearing a ko."
-            elif self.passes == 1:
-                status = "The opponent passed."
-            else:
-                status = "The game has ended."
+        if not self.last_move and not self.passes:
+            status = "The opponent passed clearing a ko."
+        if self.passes == 1:
+            status = "The opponent passed."
+        elif self.passes >= 2:
+            status = "The game has ended."
         if self.target_dead:
             status = "Target eliminated."
 
@@ -559,6 +593,8 @@ class State(object):
             "white_to_play": self.white_to_play,
             "captures_by_black": captures_by_black,
             "captures_by_white": captures_by_white,
+            "min_ko_threats": self.min_ko_threats,
+            "max_ko_threats": self.max_ko_threats,
             "active": self.active,
             "status": status,
             "rows": rows,
@@ -625,20 +661,20 @@ class NodeValue(object):
             "high_distance": self.high_distance,
         }
 
+
 _QUERY = None
 BASE_STATES = {"design": State(rectangle(9, 7))}
-LAYERS = [0]
+BASE_STATES["design"].set_layers(1)
 
 
 def reset_query():
-    global _QUERY, LAYERS
+    global _QUERY
     _QUERY = None
-    LAYERS = [0]
     return "DB reset"
 
 
 def init_query():
-    global _QUERY, BASE_STATES, LAYERS
+    global _QUERY, BASE_STATES
     if _QUERY is None:
         os.chdir(settings.TSUMEGO_QUERY_PATH)
         filenames = [name + "_japanese.dat" for name in settings.TSUMEGO_NAMES]
@@ -647,7 +683,7 @@ def init_query():
             _QUERY.expect(" ".join(["-?\d+"] * 9))
             BASE_STATES[name] = State.load(_QUERY.after)
             _QUERY.expect("\d")
-            LAYERS.append(int(_QUERY.after))
+            BASE_STATES[name].set_layers(int(_QUERY.after))
             if settings.LOCAL_DEBUG:
                 print BASE_STATES[name].render()
         _QUERY.expect("Solutions loaded.")

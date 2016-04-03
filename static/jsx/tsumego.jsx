@@ -240,6 +240,28 @@ var ChildResults = React.createClass({
     }
 });
 
+var NumberInput = React.createClass({
+    handleChange: function(e) {
+        this.props.onChange(e.target.value);
+    },
+    render: function() {
+        return (
+            <div className="form-group">
+                <label htmlFor={this.props.label}>{this.props.label}:</label>
+                <input
+                    id={this.props.label}
+                    className="form-control"
+                    type="number"
+                    value={this.props.value}
+                    min={this.props.min}
+                    max={this.props.max}
+                    onChange={this.handleChange}
+                />
+            </div>
+        );
+    }
+});
+
 function handle_status(response) {
     if (response.status >= 200 && response.status < 300) {
         return Promise.resolve(response);
@@ -326,6 +348,9 @@ var Game = React.createClass({
     handleModeChange: function(mode) {
         this.setState({"mode": mode});
     },
+    handleKoThreatsChange: function(value) {
+        this.doFetch("&ko_threats=" + value);
+    },
     handleReset: function() {
         this.setState({"value": false});
         this.setState({"swap_colors": false});
@@ -366,6 +391,13 @@ var Game = React.createClass({
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
                     <LabeledCheckBox label="Swap colors" checked={this.state.swap_colors} onChange={this.handleColorChange} />
+                    <NumberInput
+                        label="Ko threats"
+                        value={this.state.data.ko_threats}
+                        min={this.state.data.min_ko_threats}
+                        max={this.state.data.max_ko_threats}
+                        onChange={this.handleKoThreatsChange}
+                    />
                     <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatsPanel data={this.state.data} />
                     <Button label="Reset" onClick={this.handleReset} />
