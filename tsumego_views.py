@@ -79,53 +79,61 @@ class TsumegoJSONView(View):
         except TsumegoError as e:
             return JsonResponse({"error": e.message})
 
-        dump = self.request.GET.get("dump")
+        srg = self.request.GET.get
+
+        dump = srg("dump")
         if dump:
             try:
                 state.update(dump)
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
 
-        move = self.request.GET.get("move")
+        move = srg("move")
         if move:
             # TODO: check that move can be parsed
             valid, prisoners = state.make_move(parse_move(move))
             if not valid:
                 return JsonResponse({"error": "Invalid move."})
 
-        add_player = self.request.GET.get("add_player")
+        add_player = srg("add_player")
         if add_player:
             state.add_player(parse_move(add_player))
 
-        add_opponent = self.request.GET.get("add_opponent")
+        add_opponent = srg("add_opponent")
         if add_opponent:
             state.add_opponent(parse_move(add_opponent))
 
-        remove = self.request.GET.get("remove")
+        remove = srg("remove")
         if remove:
             state.remove(parse_move(remove))
 
-        if self.request.GET.get("book"):
+        if srg("book"):
             try:
                 make_book_move(state, low=True)
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
 
-        if self.request.GET.get("vs_book"):
+        if srg("vs_book"):
             try:
                 make_book_move(state)
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
 
-        if self.request.GET.get("swap"):
+        if srg("swap"):
             state.swap_players()
 
         result = {}
-        if self.request.GET.get("value"):
+        if srg("value"):
             value, children = query(state, reverse_target=bool(add_player))
             if not value.valid:
                 return JsonResponse({"error": value.error})
             result["value"] = value.to_json()
+
+        # All the queries have to be done prior to color swapping.
+        if srg("color"):
+            state.white_to_play = not state.white_to_play
+
+        if srg("value"):
             child_results = []
             for move, child_value in children.items():
                 child = state.copy()
@@ -140,6 +148,15 @@ class TsumegoJSONView(View):
             result["result"] = format_value(state, value)
 
         state.fix_targets()
+
+        if settings.LOCAL_DEBUG:
+            print state.render()
+
         result.update(get_state_json(state, kwargs["name"]))
+
+        # The white_to_play bit is used when decoding so we have do some shuffling here.
+        if srg("color"):
+            state.white_to_play = not state.white_to_play
+            result["code"] = state.to_code()
 
         return JsonResponse(result)

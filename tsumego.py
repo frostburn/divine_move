@@ -127,7 +127,7 @@ class TsumegoError(Exception):
 class State(object):
     num_code_chars = 63
 
-    def __init__(self, playing_area, player=0, opponent=0, ko=0, target=0, immortal=0, passes=0, ko_threats=0, white_to_play=False, black_prisoners=0, white_prisoners=0):
+    def __init__(self, playing_area, player=0, opponent=0, ko=0, target=0, immortal=0, passes=0, ko_threats=0, white_to_play=False, captures_by_player=0, captures_by_opponent=0):
         self.playing_area = playing_area
         self.player = player
         self.opponent = opponent
@@ -138,8 +138,8 @@ class State(object):
         self.ko_threats = ko_threats
         self.white_to_play = white_to_play
 
-        self.black_prisoners = black_prisoners
-        self.white_prisoners = white_prisoners
+        self.captures_by_player = captures_by_player
+        self.captures_by_opponent = captures_by_opponent
 
         open_area = playing_area & ~(target | immortal)
         self.moves = [0]
@@ -174,8 +174,8 @@ class State(object):
             self.passes,
             self.ko_threats,
             self.white_to_play,
-            self.black_prisoners,
-            self.white_prisoners,
+            self.captures_by_player,
+            self.captures_by_opponent,
         )
 
     def _kill_chain(self, chain):
@@ -193,25 +193,28 @@ class State(object):
         self.ko = 0
         self.passes = 0
         self.ko_threats = 0
-        self.black_prisoners = 0
-        self.white_prisoners = 0
+        self.captures_by_player = 0
+        self.captures_by_opponent = 0
+
+    def swap_players(self):
+        self.player, self.opponent = (self.opponent, self.player)
+        self.ko_threats = -self.ko_threats
+        self.white_to_play = not self.white_to_play
+        self.captures_by_player, self.captures_by_opponent = (self.captures_by_opponent, self.captures_by_player)
 
     def make_move(self, move):
         if not self.active:
             return False, 0
-        old_player = self.player
         if not move:
             if self.ko:
                 self.ko = 0
             else:
                 self.passes += 1
-            self.player = self.opponent
-            self.opponent = old_player
-            self.ko_threats = -self.ko_threats
-            self.white_to_play = not self.white_to_play
+            self.swap_players()
             self.last_move = move
             return True, 0
 
+        old_player = self.player
         old_opponent = self.opponent
         old_ko = self.ko
         old_ko_threats = self.ko_threats
@@ -248,32 +251,29 @@ class State(object):
             self.ko_threats = old_ko_threats
             return False, 0
 
-        if self.white_to_play:
-            self.black_prisoners += num_kill
-        else:
-            self.white_prisoners += num_kill
+        self.captures_by_player += num_kill
 
         self.passes = 0
-        old_player = self.player
-        self.player = self.opponent
-        self.opponent = old_player
-        self.ko_threats = -self.ko_threats
-        self.white_to_play = not self.white_to_play
+        self.swap_players()
         self.last_move = move
+
         return True, num_kill
 
     def add_player(self, move):
         result = self.make_move(move)
         self.swap_players()
+        self.last_move = -1
         return result
 
     def add_opponent(self, move):
         self.swap_players()
+        self.last_move = -1
         return self.make_move(move)
 
     def remove(self, move):
         self.player &= ~move
         self.opponent &= ~move
+        self.last_move = -1
 
     @property
     def target_dead(self):
@@ -282,11 +282,6 @@ class State(object):
     @property
     def active(self):
         return self.passes < 2 and not self.target_dead
-
-    def swap_players(self):
-        self.player, self.opponent = (self.opponent, self.player)
-        self.ko_threats = -self.ko_threats
-        self.white_to_play = not self.white_to_play
 
     def fix_targets(self):
         """
@@ -341,7 +336,7 @@ class State(object):
             r += u"White to play"
         else:
             r += u"Black to play"
-        r += u", passes=%d, ko_threats=%d, prisoners=%d, %d" % (self.passes, self.ko_threats, self.black_prisoners, self.white_prisoners)
+        r += u", passes=%d, ko_threats=%d, prisoners=%d, %d" % (self.passes, self.ko_threats, self.captures_by_player, self.captures_by_opponent)
         return r
 
     def dump(self):
@@ -365,6 +360,12 @@ class State(object):
             black = self.player
             white = self.opponent
         return black, white
+
+    def get_prisoners(self):
+        if self.white_to_play:
+            return self.captures_by_opponent, self.captures_by_player
+        else:
+            return self.captures_by_player, self.captures_by_opponent
 
     @property
     def code_size(self):
@@ -393,13 +394,13 @@ class State(object):
         code *= 3 + len(self.moves)
         code += ko_pos
         code *= 2
-        code += self.white_to_play
+        code += 1 if self.white_to_play else 0
 
         code = int_to_code(code, self.code_size, num_chars=self.num_code_chars)
         if self.ko_threats:
             code += "_%d" % (self.ko_threats,)
-        if self.black_prisoners or self.white_prisoners:
-            code += "_%d_%d" % (self.black_prisoners, self.white_prisoners)
+        if self.captures_by_player or self.captures_by_opponent:
+            code += "_%d_%d" % (self.captures_by_player, self.captures_by_opponent)
 
         return code
 
@@ -409,15 +410,15 @@ class State(object):
         other.player &= fixed
         other.opponent &= fixed
 
-        other.ko_threats, other.black_prisoners, other.white_prisoners = (0, 0, 0)
+        other.ko_threats, other.captures_by_player, other.captures_by_opponent = (0, 0, 0)
         if "_" in code:
             code, rest = code.split("_", 1)
             if rest.count("_") == 0:
                 other.ko_threats = int(rest)
             elif rest.count("_") == 1:
-                other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
+                other.captures_by_player, other.captures_by_opponent = map(int, rest.split("_"))
             elif rest.count("_") == 2:
-                other.ko_threats, other.black_prisoners, other.white_prisoners = map(int, rest.split("_"))
+                other.ko_threats, other.captures_by_player, other.captures_by_opponent = map(int, rest.split("_"))
             else:
                 raise TsumegoError("Invalid code")
 
@@ -471,6 +472,7 @@ class State(object):
 
     def to_json(self):
         black, white = self.get_colors()
+        captures_by_black, captures_by_white = self.get_prisoners()
 
         moves = 0
         o_moves = 0
@@ -555,8 +557,8 @@ class State(object):
             "passes": self.passes,
             "ko_threats": self.ko_threats,
             "white_to_play": self.white_to_play,
-            "black_prisoners": self.black_prisoners,
-            "white_prisoners": self.white_prisoners,
+            "captures_by_black": captures_by_black,
+            "captures_by_white": captures_by_white,
             "active": self.active,
             "status": status,
             "rows": rows,
@@ -704,10 +706,9 @@ def get_coords():
 
 
 def format_value(state, value):
-    if state.white_to_play:
-        result = -value.low + state.white_prisoners - state.black_prisoners
-    else:
-        result = value.low + state.white_prisoners - state.black_prisoners
+    result = -value.low if state.white_to_play else value.low
+    captures_by_black, captures_by_white = state.get_prisoners()
+    result += captures_by_black - captures_by_white
     if result < 0:
         result = "W+" + str(-result)
     else:

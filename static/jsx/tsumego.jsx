@@ -186,8 +186,8 @@ var StatsPanel = React.createClass({
         return (
             <p>
                 Passes: {data.passes}<br />
-                Captures by Black: {data.white_prisoners}<br />
-                Captures by White: {data.black_prisoners}<br />
+                Captures by Black: {data.captures_by_black}<br />
+                Captures by White: {data.captures_by_white}<br />
                 Result: {data.result}<br />
                 Code: <a href={data.tsumego_url}>{data.code}</a>
             </p>
@@ -220,6 +220,18 @@ var ChildResults = React.createClass({
             var best = row[2];
             return (<p className={best ? "best-result" : ""} key={coords}>{coords + ": " + result}</p>);
         });
+        function cmp(a, b) {
+            a = a.key;
+            b = b.key;
+            if (a < b) {
+                return -1;
+            }
+            else if (a > b) {
+                return 1;
+            }
+            return 0;
+        }
+        results.sort(cmp);
         return (
             <div>
                 {results}
@@ -256,6 +268,9 @@ var Game = React.createClass({
         var that = this;
         if (this.state.value) {
             params += "&value=1";
+        }
+        if (this.state.swap_colors) {
+            params += "&color=1";
         }
         if (!this.state.data.active) {
             params += "&dump=" + escape(this.state.data.dump);
@@ -302,10 +317,18 @@ var Game = React.createClass({
     handleVsBookChange: function() {
         this.setState({"vs_book": !this.state.vs_book});
     },
+    handleColorChange: function() {
+        // Have to mutate here so that doFetch works correctly.
+        this.state.swap_colors = !this.state.swap_colors;
+        this.setState({"swap_colors": this.state.swap_colors});
+        this.doFetch("");
+    },
     handleModeChange: function(mode) {
         this.setState({"mode": mode});
     },
     handleReset: function() {
+        this.setState({"value": false});
+        this.setState({"swap_colors": false});
         this.setState({"data": this.props.data});
     },
     getInitialState: function() {
@@ -313,6 +336,7 @@ var Game = React.createClass({
             data: this.props.data,
             "vs_book": true,
             "value": false,
+            "swap_colors": false,
             "mode": "move",
         };
     },
@@ -341,6 +365,7 @@ var Game = React.createClass({
                     <Button label="Book" onClick={this.handleBook} />
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
+                    <LabeledCheckBox label="Swap colors" checked={this.state.swap_colors} onChange={this.handleColorChange} />
                     <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatsPanel data={this.state.data} />
                     <Button label="Reset" onClick={this.handleReset} />
