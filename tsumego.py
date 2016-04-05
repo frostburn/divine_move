@@ -167,6 +167,7 @@ class State(object):
                 self.moves.append(move)
 
         self.last_move = -1
+        self.ko_threat_used = False
 
         row_widths = []
         for j in reversed(range(HEIGHT)):
@@ -252,10 +253,12 @@ class State(object):
         old_opponent = self.opponent
         old_ko = self.ko
         old_ko_threats = self.ko_threats
+        self.ko_threat_used = False
         if move & self.ko:
             if self.ko_threats <= 0:
                 return False, 0
             self.ko_threats -= 1
+            self.ko_threat_used = True
 
         if move & (self.player | self.opponent | ~self.playing_area):
             return False, 0
@@ -301,8 +304,9 @@ class State(object):
 
     def add_opponent(self, move):
         self.swap_players()
+        result = self.make_move(move)
         self.last_move = -1
-        return self.make_move(move)
+        return result
 
     def remove(self, move):
         self.player &= ~move
@@ -407,14 +411,13 @@ class State(object):
         return int(ceil(log(max_code, self.num_code_chars)))
 
     def to_code(self):
-        black, white = self.get_colors()
         code = 0
         ko_pos = 0
         for i, m in enumerate(sorted(self.moves)):
             code *= 3
-            if black & m:
+            if self.player & m:
                 code += 1
-            elif white & m:
+            elif self.opponent & m:
                 code += 2
             if self.ko & m:
                 ko_pos = i
@@ -459,34 +462,25 @@ class State(object):
         code = code_to_int(code, num_chars=self.num_code_chars)
         other.white_to_play = bool(code % 2)
         code //= 2
+        if other.white_to_play != self.white_to_play:
+            other.player, other.opponent = other.opponent, other.player
+            other.min_ko_threats, other.max_ko_threats = -other.max_ko_threats, -other.min_ko_threats
         ko_pos = code % (3 + len(self.moves))
         code //= (3 + len(self.moves))
         if ko_pos < len(self.moves):
             other.ko = sorted(self.moves)[ko_pos]
         else:
             other.passes = ko_pos - len(self.moves)
-        black = 0
-        white = 0
         for m in reversed(sorted(self.moves)):
             stone = code % 3
             code //= 3
             if stone == 1:
-                black |= m
+                other.player |= m
             elif stone == 2:
-                white |= m
-        if other.white_to_play != self.white_to_play:
-            other.player, other.opponent = other.opponent, other.player
-            other.min_ko_threats, other.max_ko_threats = -other.max_ko_threats, -other.min_ko_threats
-        if other.white_to_play:
-            other.player |= white
-            other.opponent |= black
-        else:
-            other.player |= black
-            other.opponent |= white
+                other.opponent |= m
         return other
 
-    # TODO: Make use of in react compatible way
-    def _get_json_members(self, color, name):
+    def _flood_fixed_into_color(self, color):
         color_target = flood(self.target, color)
         color_immortal = flood(self.immortal, color)
         color_escaped = color_target & color_immortal
@@ -494,16 +488,12 @@ class State(object):
         color_target ^= color_escaped
         color_immortal ^= color_escaped
 
-        result = {}
-        result[name] = color
-        result[name + "_target"] = color_target
-        result[name + "_immortal"] = color_immortal
-        result[name + "_escaped"] = color_escaped
+        return color_target, color_immortal, color_escaped
 
-        for key, value in result.items():
-            result[key] = to_coord_list(value)
-
-        return result
+    def flood_fixed(self):
+        pt, pi, pe = self._flood_fixed_into_color(self.player)
+        ot, oi, oe = self._flood_fixed_into_color(self.opponent)
+        return pt | ot, pi | oi, pe | oe
 
     def to_json(self):
         black, white = self.get_colors()
@@ -522,6 +512,8 @@ class State(object):
             if valid:
                 o_moves |= move
 
+        target, immortal, escaped = self.flood_fixed()
+
         color_to_play = ("white" if self.white_to_play else "black")
         o_color = ("black" if self.white_to_play else "white")
         rows = []
@@ -539,6 +531,14 @@ class State(object):
                 else:
                     color = "n"
 
+                status = ""
+                if m & target:
+                    status = "t"
+                elif m & immortal:
+                    status = "i"
+                elif m & escaped:
+                    status = "e"
+
                 pa = self.playing_area
                 horizontal = ""
                 vertical = ""
@@ -554,6 +554,7 @@ class State(object):
 
                 stone = {
                     "c": color,
+                    "s": status,
                     "x": "%d_%d" % (i, j),
                 }
                 if vertical:
@@ -577,6 +578,10 @@ class State(object):
             })
 
         status = ""
+        if self.ko and self.ko_threats > 0:
+            status = "You can now use a ko threat and take the ko back."
+        if self.ko_threat_used:
+            status = "The opponent used a ko threat and took the ko back."
         if not self.last_move and not self.passes:
             status = "The opponent passed clearing a ko."
         if self.passes == 1:

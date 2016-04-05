@@ -67,10 +67,12 @@ class TsumegoView(TemplateView):
         if not base_state:
             raise Http404("Tsumego not found.")
         state = base_state.from_code(kwargs["code"])
-        ko_threats = int(self.request.GET.get("ko_threats", "0"))
-        if not (state.min_ko_threats <= ko_threats <= state.max_ko_threats):
-            raise Http404("Tsumego not found. Too many ko threats.")
-        state.ko_threats = ko_threats
+        ko_threats = self.request.GET.get("ko_threats")
+        if ko_threats is not None:
+            ko_threats = int(ko_threats)
+            if not (state.min_ko_threats <= ko_threats <= state.max_ko_threats):
+                raise Http404("Tsumego not found. Too many ko threats.")
+            state.ko_threats = ko_threats
         context["tsumego_name"] = kwargs["name"]
         state_json = get_state_json(state, kwargs["name"])
         context["state"] = json.dumps(state_json)

@@ -39,9 +39,21 @@ var Cell = React.createClass({
             default:
                 color = "none";
         }
+        var status = "";
+        switch(this.props.status) {
+            case "t":
+                status = "target";
+                break;
+            case "i":
+                status = "immortal";
+                break;
+            case "e":
+                status = "escaped";
+                break;
+        }
         var color_to_play = this.props.white_to_play ? "white" : "black";
         var opponent_color = this.props.white_to_play ? "black" : "white";
-        var class_name = color + " stone";
+        var class_name = color + " " + status + " cell-content";
         if (this.props.mode === "remove") {
             // pass
         }
@@ -73,6 +85,7 @@ var Row = React.createClass({
         var cells = data.map((stone) => (
             <Cell 
                 color={stone.c}
+                status={stone.s}
                 vertical={stone.v}
                 horizontal={stone.h}
                 move={stone.m}
@@ -158,17 +171,17 @@ var LabeledCheckBox = React.createClass({
 
 var RadioGroup = React.createClass({
     render: function() {
-        var inputs = this.props.options.map((option) => (
-            <div className="radio" key={option}>
+        var inputs = this.props.choices.map((choice) => (
+            <div className="radio" key={choice[0]}>
                 <label>
                     <input
                         type="radio"
                         name={this.props.name}
-                        value={option}
-                        checked={this.props.selected === option}
-                        onChange={this.props.onChange.bind(null, option)}
+                        value={choice[0]}
+                        checked={this.props.selected === choice[0]}
+                        onChange={this.props.onChange.bind(null, choice[0])}
                     />
-                    {option}
+                    {choice[1]}
                 </label>
             </div>
         ));
@@ -313,7 +326,33 @@ var Game = React.createClass({
             }
         );
     },
+    pushUndo: function() {
+        if (this.state.data.active) {
+            var undos = this.state.undos;
+            undos.push(this.state.data.code);
+            this.setState({"undos": undos});
+        }
+    },
+    handleUndo: function() {
+        var undos = this.state.undos;
+        if (undos.length) {
+            var code = undos.pop();
+            var data = this.state.data;
+            var old_code = data.code;
+            data.code = code;  // Evil. Can modify props.
+            var old_active = data.active;
+            data.active = true;
+            this.setState({
+                "undos": undos,
+                "data": data,
+            });
+            this.doFetch("");
+            data.code = old_code;  // Undo the evil.
+            data.active = old_active;
+        }
+    },
     handleMove: function(coords) {
+        this.pushUndo();
         var params = "&" + this.state.mode + "=" + escape(coords);
         if (this.state.vs_book && this.state.mode === "move") {
             params += "&vs_book=1";
@@ -321,9 +360,19 @@ var Game = React.createClass({
         this.doFetch(params);
     },
     handleSwap: function() {
+        // Have to force update to prevent the UI from blinking as fetch takes a while.
+        if (this.state.mode === "add_player") {
+            this.setState({"mode": "add_opponent"});
+            this.forceUpdate();
+        }
+        else if (this.state.mode === "add_opponent") {
+            this.setState({"mode": "add_player"});
+            this.forceUpdate();
+        }
         this.doFetch("&swap=1");
     },
     handleBook: function() {
+        this.pushUndo();
         var params = "&book=1";
         if (this.state.vs_book) {
             params += "&vs_book=1";
@@ -352,21 +401,36 @@ var Game = React.createClass({
         this.doFetch("&ko_threats=" + value);
     },
     handleReset: function() {
-        this.setState({"value": false});
-        this.setState({"swap_colors": false});
-        this.setState({"data": this.props.data});
+        this.setState({
+            "value": false,
+            "swap_colors": false,
+            "data": this.props.data,
+            "undos": []
+        });
     },
     getInitialState: function() {
         return {
-            data: this.props.data,
+            "data": this.props.data,
             "vs_book": true,
             "value": false,
             "swap_colors": false,
             "mode": "move",
+            "undos": [],
         };
     },
     render: function() {
-        var mode_options = ["move", "add_player", "add_opponent", "remove"];
+        var mode_options;
+        var mode_labels = ["Move", "Add Black", "Add White", "Remove"];
+        if (this.state.data.white_to_play) {
+            mode_options = ["move", "add_opponent", "add_player", "remove"];
+        }
+        else {
+            mode_options = ["move", "add_player", "add_opponent", "remove"];
+        }
+        var mode_choices = [];
+        for (var i = 0; i < 4; i++) {
+            mode_choices.push([mode_options[i], mode_labels[i]]);
+        }
         var child_results = [];
         if (this.state.data.value !== undefined) {
             child_results = this.state.data.value.children;
@@ -386,6 +450,7 @@ var Game = React.createClass({
                 </div>
                 <div className="col-md-3">
                     <PassButton onMove={this.handleMove} />
+                    <Button label="Undo" onClick={this.handleUndo} />
                     <Button label="Swap" onClick={this.handleSwap} />
                     <Button label="Book" onClick={this.handleBook} />
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
@@ -398,7 +463,7 @@ var Game = React.createClass({
                         max={this.state.data.max_ko_threats}
                         onChange={this.handleKoThreatsChange}
                     />
-                    <RadioGroup options={mode_options} selected={this.state.mode} onChange={this.handleModeChange} />
+                    <RadioGroup choices={mode_choices} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatsPanel data={this.state.data} />
                     <Button label="Reset" onClick={this.handleReset} />
                 </div>
