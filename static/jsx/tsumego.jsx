@@ -1,8 +1,14 @@
 var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J"];
 
 var Cell = React.createClass({
+    getInitialState: function() {
+        // This hover state is supposed to help with touch devices where a touch
+        // activates the element's :hover state leaving a confusing ghost stone.
+        return {"hover": true};
+    },
     handleClick: function(e) {
         e.preventDefault();
+        this.setState({"hover": false});
         if (this.props.mode === "remove") {
             this.props.onMove(this.props.coords);
         }
@@ -17,13 +23,35 @@ var Cell = React.createClass({
             return;
         }
     },
+    handleMouseOut: function(e) {
+        e.preventDefault();
+        this.setState({"hover": true});
+    },
     render: function() {
         var children = [];
+        var vertical = this.props.vertical;
+        var horizontal = this.props.horizontal;
+        var status = "";
+        switch (this.props.status) {
+            case "t":
+                status = "target";
+                break;
+            case "i":
+                status = "immortal";
+                break;
+            case "e":
+                status = "escaped";
+                break;
+        }
+        if (status == "immortal") {
+            vertical = "ns";
+            horizontal = "ew";
+        }
         if (this.props.vertical) {
-            children.push(<span className={"vertical " + this.props.vertical} key="vertical"/>);
+            children.push(<span className={"vertical " + vertical} key="vertical"/>);
         }
         if (this.props.horizontal) {
-            children.push(<span className={"horizontal " + this.props.horizontal} key="horizontal"/>);
+            children.push(<span className={"horizontal " + horizontal} key="horizontal"/>);
         }
         var color;
         switch(this.props.color) {
@@ -39,32 +67,19 @@ var Cell = React.createClass({
             default:
                 color = "none";
         }
-        var status = "";
-        switch(this.props.status) {
-            case "t":
-                status = "target";
-                break;
-            case "i":
-                status = "immortal";
-                break;
-            case "e":
-                status = "escaped";
-                break;
-        }
         var color_to_play = this.props.white_to_play ? "white" : "black";
         var opponent_color = this.props.white_to_play ? "black" : "white";
         var class_name = color + " " + status + " cell-content";
-        if (this.props.mode === "remove") {
-            // pass
-        }
-        else if (this.props.mode === "add_opponent") {
-            if (this.props.o_move) {
-                class_name += " " + opponent_color + "-move";
+        if (this.state.hover) {
+            if (this.props.mode === "add_opponent") {
+                if (this.props.o_move) {
+                    class_name += " " + opponent_color + "-move";
+                }
             }
-        }
-        else {
-            if (this.props.move) {
-                class_name += " " + color_to_play + "-move";
+            else {
+                if (this.props.move) {
+                    class_name += " " + color_to_play + "-move";
+                }
             }
         }
         children.push(<span className={class_name} key="stone" />);
@@ -72,7 +87,7 @@ var Cell = React.createClass({
             children.push(<span className="last-move" key="last" />);
         }
         return (
-            <div className="cell" onClick={this.handleClick}>
+            <div className="cell" onClick={this.handleClick} onMouseOut={this.handleMouseOut}>
                 {children}
             </div>
         );
@@ -193,6 +208,29 @@ var RadioGroup = React.createClass({
     }
 });
 
+var InlineRadioGroup = React.createClass({
+    render: function() {
+        var inputs = this.props.choices.map((choice) => (
+            <label className="radio-inline" key={choice[0]}>
+                <input
+                    type="radio"
+                    name={this.props.name}
+                    value={choice[0]}
+                    checked={this.props.selected === choice[0]}
+                    onChange={this.props.onChange.bind(null, choice[0])}
+                />
+                {choice[1]}
+            </label>
+        ));
+        return (
+            <div>
+                <strong className="pull-left inline-radio-title">{this.props.title}</strong>
+                {inputs}
+            </div>
+        );
+    }
+});
+
 var StatsPanel = React.createClass({
     render: function() {
         var data = this.props.data;
@@ -210,9 +248,13 @@ var StatsPanel = React.createClass({
 
 var StatusRow = React.createClass({
     render: function() {
+        var status = this.props.status;
+        if (!status.length) {
+            status = "\u00a0";
+        }
         return (
             <p>
-                {this.props.status}
+                {status}
             </p>
         );
     }
@@ -469,7 +511,7 @@ var Game = React.createClass({
     handleReset: function() {
         this.setState({
             "value": false,
-            "swap_colors": false,
+            "swap_colors": this.props.swap_colors,
             "data": this.props.data,
             "undos": []
         });
@@ -479,7 +521,7 @@ var Game = React.createClass({
             "data": this.props.data,
             "vs_book": true,
             "value": false,
-            "swap_colors": false,
+            "swap_colors": this.props.swap_colors,
             "mode": "move",
             "undos": [],
         };
@@ -501,9 +543,15 @@ var Game = React.createClass({
         if (this.state.data.value !== undefined) {
             child_results = this.state.data.value.children;
         }
+        var player_title = this.state.data.white_to_play ? "White to play" : "Black to play";
+        var ko_threat_choices = [];
+        for (var i = this.state.data.min_ko_threats; i <= this.state.data.max_ko_threats; i++) {
+            ko_threat_choices.push([i, i]);
+        }
         return (
             <div className="game row">
                 <div className="col-md-5">
+                    <h3>{player_title}</h3>
                     <Board
                         data={this.state.data.rows}
                         onMove={this.handleMove}
@@ -513,23 +561,17 @@ var Game = React.createClass({
                         height={this.props.data.height}
                     />
                     <StatusRow status={this.state.data.status} />
+                    <PassButton onMove={this.handleMove} />
+                    <Button label="Undo" onClick={this.handleUndo} />
+                    <Button label="Book move" onClick={this.handleBook} />
                     <ProblemForm dump={this.state.data.dump} />
                 </div>
                 <div className="col-md-3">
-                    <PassButton onMove={this.handleMove} />
-                    <Button label="Undo" onClick={this.handleUndo} />
-                    <Button label="Swap" onClick={this.handleSwap} />
-                    <Button label="Book" onClick={this.handleBook} />
+                    <Button label="Swap players" onClick={this.handleSwap} />
                     <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
                     <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
                     <LabeledCheckBox label="Swap colors" checked={this.state.swap_colors} onChange={this.handleColorChange} />
-                    <NumberInput
-                        label="Ko threats"
-                        value={this.state.data.ko_threats}
-                        min={this.state.data.min_ko_threats}
-                        max={this.state.data.max_ko_threats}
-                        onChange={this.handleKoThreatsChange}
-                    />
+                    <InlineRadioGroup title="Ko threats:" choices={ko_threat_choices} selected={this.state.data.ko_threats} onChange={this.handleKoThreatsChange} />
                     <RadioGroup choices={mode_choices} selected={this.state.mode} onChange={this.handleModeChange} />
                     <StatsPanel data={this.state.data} />
                     <Button label="Reset" onClick={this.handleReset} />
@@ -544,6 +586,6 @@ var Game = React.createClass({
 
 
 ReactDOM.render(
-    <Game data={window.state} />,
+    <Game data={window.state} swap_colors={window.swap_colors} />,
     document.getElementById("container")
 );

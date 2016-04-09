@@ -70,7 +70,11 @@ class TsumegoView(TemplateView):
         base_state = base_states.get(kwargs["name"])
         if not base_state:
             raise Http404("Tsumego not found.")
-        state = base_state.from_code(kwargs["code"])
+        code = kwargs["code"]
+        swap_colors = code.startswith("_")
+        code = code.lstrip("_")
+        state = base_state.from_code(code)
+        state.white_to_play ^= swap_colors
         ko_threats = self.request.GET.get("ko_threats")
         if ko_threats is not None:
             ko_threats = int(ko_threats)
@@ -78,7 +82,9 @@ class TsumegoView(TemplateView):
                 raise Http404("Tsumego not found. Too many ko threats.")
             state.ko_threats = ko_threats
         context["tsumego_name"] = kwargs["name"]
+        context["swap_colors"] = json.dumps(swap_colors)
         state_json = get_state_json(state, kwargs["name"])
+        state_json["code"] = code
         context["state"] = json.dumps(state_json)
         return context
 
@@ -90,12 +96,17 @@ class TsumegoProblemIndexView(View):
         for problem in TsumegoProblem.objects.all():
             state = State.load(problem.state_dump)
             for name, base_state in base_states.items():
-                if base_state.is_sub_state(state):
+                is_sub_state, colors_match = base_state.has_sub_state(state)
+                if is_sub_state:
                     break
             else:
                 content += problem.name + '<br>'
                 continue
+            if not colors_match:
+                state.white_to_play = not state.white_to_play
             code = state.to_code()
+            if not colors_match:
+                code = '_' + code
             content += '<a href="' + reverse('tsumego', kwargs={'name': name, 'code': code}) + '">' + problem.name + '</a><br>'
             if settings.LOCAL_DEBUG:
                 print state.render()
@@ -163,7 +174,8 @@ class TsumegoJSONView(View):
             state.swap_players()
 
         result = {}
-        if srg("value"):
+        include_value = srg("value") or not state.active;
+        if include_value:
             value, children = query(state, reverse_target=bool(add_player))
             if not value.valid:
                 return JsonResponse({"error": value.error})
@@ -173,7 +185,7 @@ class TsumegoJSONView(View):
         if srg("color"):
             state.white_to_play = not state.white_to_play
 
-        if srg("value"):
+        if include_value:
             child_results = []
             for move, child_value in children.items():
                 child = state.copy()

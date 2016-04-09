@@ -623,13 +623,45 @@ class State(object):
         self.opponent = other.opponent
         self.ko = other.ko
 
-    def is_sub_state(self, other):
-        # TODO: Check color too.
-        return (
+    def has_sub_state(self, other):
+        layout_matches = (
             self.playing_area == other.playing_area and
             self.target == other.target and
             self.immortal == other.immortal
         )
+        if not layout_matches:
+            return False, False
+        black, white = self.get_colors()
+        black_target = black & self.target
+        white_target = white & self.target
+        black_immortal = black & self.immortal
+        white_immortal = white & self.immortal
+
+        black, white = other.get_colors()
+        o_black_target = black & other.target
+        o_white_target = white & other.target
+        o_black_immortal = black & other.immortal
+        o_white_immortal = white & other.immortal
+
+        colors_match = (
+            black_target == o_black_target and
+            white_target == o_white_target and
+            black_immortal == o_black_immortal and
+            white_immortal == o_white_immortal
+        )
+        if colors_match:
+            return True, True
+
+        opposite_colors_match = (
+            black_target == o_white_target and
+            white_target == o_black_target and
+            black_immortal == o_white_immortal and
+            white_immortal == o_black_immortal
+        )
+        if opposite_colors_match:
+            return True, False
+
+        return False, False
 
 
 class NodeValue(object):
