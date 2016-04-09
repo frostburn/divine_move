@@ -12,6 +12,9 @@ from jsonfield import JSONField
 from go_board import Board, get_orientation
 from utils import *
 
+# TODO: Turn models into a module.
+from tsumego_models import *
+
 
 GO_9x9_CODE_LENGTH = 23
 GO_13x13_CODE_LENGTH = 46

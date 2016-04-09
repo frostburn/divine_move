@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import division
 
 import json
@@ -8,11 +9,14 @@ import subprocess
 from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.core.urlresolvers import reverse
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.http import HttpResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, resolve_url
 from django.views.generic import RedirectView, View, TemplateView
 
 from tsumego import *
+from models import TsumegoProblem
 
 
 def parse_move(move):
@@ -77,6 +81,26 @@ class TsumegoView(TemplateView):
         state_json = get_state_json(state, kwargs["name"])
         context["state"] = json.dumps(state_json)
         return context
+
+
+class TsumegoProblemIndexView(View):
+    def get(self, request, *args, **kwargs):
+        base_states = init_query()
+        content = '<html><body>'
+        for problem in TsumegoProblem.objects.all():
+            state = State.load(problem.state_dump)
+            for name, base_state in base_states.items():
+                if base_state.is_sub_state(state):
+                    break
+            else:
+                content += problem.name + '<br>'
+                continue
+            code = state.to_code()
+            content += '<a href="' + reverse('tsumego', kwargs={'name': name, 'code': code}) + '">' + problem.name + '</a><br>'
+            if settings.LOCAL_DEBUG:
+                print state.render()
+        content += '</body></html>'
+        return HttpResponse(content)
 
 
 class TsumegoJSONView(View):
@@ -176,3 +200,17 @@ class TsumegoJSONView(View):
             result["code"] = state.to_code()
 
         return JsonResponse(result)
+
+    @method_decorator(csrf_exempt)  # TOFIX: How about no
+    def dispatch(self, *args, **kwargs):
+        return super(TsumegoJSONView, self).dispatch(*args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        data = json.loads(request.body)
+        if data["action"] == "add_problem":
+            problem, created = TsumegoProblem.objects.get_or_create(state_dump=data["dump"])
+            problem.name = data["name"]
+            problem.save()
+        else:
+            raise ValueError("Invalid action")
+        return JsonResponse({"success": True})

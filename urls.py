@@ -30,6 +30,7 @@ urlpatterns = [
     url(r'^faq/go9x9/$', views.Go9x9FAQView.as_view(), name='go9x9_faq'),
     url(r'^tsumego/$', tsumego_views.TsumegoIndexView.as_view(), name='tsumego_index'),
     url(r'^tsumego/reset/$', tsumego_views.TsumegoResetView.as_view(), name='tsumego_reset'),
+    url(r'^tsumego/problems/$', tsumego_views.TsumegoProblemIndexView.as_view(), name='tsumego_problems'),
     url(r'^tsumego/(?P<name>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoEmptyView.as_view(), name='tsumego_empty'),
     url(r'^tsumego/(?P<name>[a-zA-Z0-9_-]+)/(?P<code>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoView.as_view(), name='tsumego'),
     url(r'^json/tsumego/(?P<name>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoJSONView.as_view(), name='tsumego_json'),

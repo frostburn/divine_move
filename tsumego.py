@@ -365,6 +365,8 @@ class State(object):
                     r += u"\x1b[30m □"
                 elif m & self.playing_area:
                     r += u"\x1b[30m ·";
+                else:
+                    r += u"  ";
             r += u"\x1b[0m\n"
         r += u" "
         for x in xrange(WIDTH):
@@ -484,7 +486,6 @@ class State(object):
         color_target = flood(self.target, color)
         color_immortal = flood(self.immortal, color)
         color_escaped = color_target & color_immortal
-        color ^= color_target | color_immortal
         color_target ^= color_escaped
         color_immortal ^= color_escaped
 
@@ -621,6 +622,14 @@ class State(object):
         self.player = other.player
         self.opponent = other.opponent
         self.ko = other.ko
+
+    def is_sub_state(self, other):
+        # TODO: Check color too.
+        return (
+            self.playing_area == other.playing_area and
+            self.target == other.target and
+            self.immortal == other.immortal
+        )
 
 
 class NodeValue(object):

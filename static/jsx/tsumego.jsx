@@ -275,6 +275,72 @@ var NumberInput = React.createClass({
     }
 });
 
+var ProblemForm = React.createClass({
+    getInitialState: function() {
+        return {"name": "", "collections": []};
+    },
+    handleNameChange: function(e) {
+        this.setState({"name": e.target.value});
+    },
+    handleCollectionChange: function(e) {
+        var options = e.target.options;
+        var collections = [];
+        // Options is not an Array so no .map
+        for (var i = 0; i < options.length; i++) {
+            if (options[i].selected) {
+                collections.push(options[i].value);
+            }
+        }
+        this.setState({"collections": collections});
+    },
+    handleSubmit: function(e) {
+        e.preventDefault();
+        var name = this.state.name.trim();
+        var collections = this.state.collections;
+        var payload = {
+            "action": "add_problem",
+            "dump": this.props.dump,
+            "name": name,
+            "collections": collections
+        };
+        fetch(window.json_url, {
+            method: "post",
+            body: JSON.stringify(payload)
+        });
+    },
+    render: function() {
+        var options = [
+            <option key="a" value="cho">Cho Chikun's encyclopedia of life and death</option>,
+            <option key="b" value="gokyo">Gokyo Shumyo</option>
+        ];
+        return (
+            <form onSubmit={this.handleSubmit}>
+                <div className="form-group">
+                    <label htmlFor="problem_name">Name:</label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="problem_name"
+                        placeholder="Problem name"
+                        value={this.state.name}
+                        onChange={this.handleNameChange}
+                    />
+                    <label htmlFor="collections">Collections:</label>
+                    <select
+                        multiple={true}
+                        className="form-control"
+                        value={this.state.collections}
+                        onChange={this.handleCollectionChange}
+                    >
+                        {options}
+                    </select>
+                </div>
+                <input type="submit" className="btn btn-default" />
+            </form>
+        );
+    }
+});
+
 function handle_status(response) {
     if (response.status >= 200 && response.status < 300) {
         return Promise.resolve(response);
@@ -322,7 +388,7 @@ var Game = React.createClass({
         )
         .catch(
             function(error) {
-                console.log('Request failed', error);
+                console.log("Request failed", error);
             }
         );
     },
@@ -447,6 +513,7 @@ var Game = React.createClass({
                         height={this.props.data.height}
                     />
                     <StatusRow status={this.state.data.status} />
+                    <ProblemForm dump={this.state.data.dump} />
                 </div>
                 <div className="col-md-3">
                     <PassButton onMove={this.handleMove} />
@@ -478,5 +545,5 @@ var Game = React.createClass({
 
 ReactDOM.render(
     <Game data={window.state} />,
-    document.getElementById('container')
+    document.getElementById("container")
 );
