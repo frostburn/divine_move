@@ -342,7 +342,8 @@ var ProblemForm = React.createClass({
         return {
             "name": this.props.name,
             "collections": this.props.collections,
-            "dump": this.props.dump
+            "dump": this.props.dump,
+            "status": "",
         };
     },
     handleNameChange: function(e) {
@@ -372,10 +373,30 @@ var ProblemForm = React.createClass({
             "name": name,
             "collections": collections
         };
+        var that = this;
         fetch(window.json_url, {
             method: "post",
             body: JSON.stringify(payload)
-        });
+        })
+        .then(to_json)
+        .then(
+            function(data) {
+                if (data.success) {
+                    that.setState({"status": "Problem saved successfully."});
+                    setTimeout(function() {
+                        that.setState({"status": ""});
+                    }, 2000);
+                }
+                else {
+                    that.setState({"status": "Error saving problem."});
+                }
+            }
+        )
+        .catch(
+            function(error) {
+                that.setState({"status": "Error: " + error});
+            }
+        );
     },
     render: function() {
         var options = this.props.options.map((option) => (
@@ -404,6 +425,7 @@ var ProblemForm = React.createClass({
                     </select>
                 </div>
                 <input type="submit" className="btn btn-default" disabled={!this.props.active} />
+                <span className="problem-status">{this.state.status}</span>
             </form>
         );
     }

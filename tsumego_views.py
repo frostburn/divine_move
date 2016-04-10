@@ -4,6 +4,7 @@ from __future__ import division
 import json
 import os
 import random
+import re
 import subprocess
 
 from django.conf import settings
@@ -125,13 +126,23 @@ class TsumegoProblemIndexView(TemplateView):
             name = "Uncategorized"
             problems = TsumegoProblem.objects.filter(collections=None)
 
+        def key(problem):
+            result = []
+            for part in filter(None, re.split("(\d+)", problem.name)):
+                if part.isdigit():
+                    part = int(part)
+                result.append(part)
+            return result
+
         collections = []
         tsumego_collections = list(TsumegoCollection.objects.all())
         tsumego_collections.append(Uncategorized)  # Who's a good duck? You are, yes you are!
         for collection in tsumego_collections:
+            problems = collection.problems.all()
+            problems = sorted(problems, key=key)
             collections.append({
                 "name": collection.name,
-                "problems": [{"name": problem.name, "url": get_problem_url(problem)} for problem in collection.problems.all()]
+                "problems": [{"name": problem.name, "url": get_problem_url(problem)} for problem in problems]
             })
         context["collections"] = collections
         return context
