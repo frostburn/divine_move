@@ -12,6 +12,7 @@
     <script type="text/javascript">
         window.state = {{ state|safe }};
         window.swap_colors = {{ swap_colors|safe }};
+        window.problem_options = {{ problem_options|safe }};
         window.json_url = "{% url 'tsumego_json' name=tsumego_name %}";
     </script>
     <script type="text/babel" src="{% static 'jsx/tsumego.jsx' %}"></script>

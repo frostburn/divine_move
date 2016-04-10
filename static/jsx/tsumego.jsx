@@ -317,9 +317,33 @@ var NumberInput = React.createClass({
     }
 });
 
+var set_problem_form_state = null;
+
 var ProblemForm = React.createClass({
+    componentDidMount: function() {
+        // The rationale behind this convolution is that we want
+        // the problem name to reflect the one in the DB, but we
+        // still want ProblemForm to handle its own state and be
+        // able the to override the DB problem.
+        set_problem_form_state = (function(name, collections, dump) {
+            if (dump !== this.state.dump) {
+                this.setState({
+                    "name": name,
+                    "collections": collections,
+                    "dump": dump,
+                });
+            }
+        }).bind(this);
+    },
+    componentWillUnmount: function() {
+        set_problem_form_state = null;
+    },
     getInitialState: function() {
-        return {"name": "", "collections": []};
+        return {
+            "name": this.props.name,
+            "collections": this.props.collections,
+            "dump": this.props.dump
+        };
     },
     handleNameChange: function(e) {
         this.setState({"name": e.target.value});
@@ -337,11 +361,14 @@ var ProblemForm = React.createClass({
     },
     handleSubmit: function(e) {
         e.preventDefault();
+        if (!this.props.active) {
+            return;
+        }
         var name = this.state.name.trim();
         var collections = this.state.collections;
         var payload = {
             "action": "add_problem",
-            "dump": this.props.dump,
+            "dump": this.state.dump,
             "name": name,
             "collections": collections
         };
@@ -351,10 +378,9 @@ var ProblemForm = React.createClass({
         });
     },
     render: function() {
-        var options = [
-            <option key="a" value="cho">Cho Chikun's encyclopedia of life and death</option>,
-            <option key="b" value="gokyo">Gokyo Shumyo</option>
-        ];
+        var options = this.props.options.map((option) => (
+            <option key={option.value} value={option.value}>{option.name}</option>
+        ));
         return (
             <form onSubmit={this.handleSubmit}>
                 <div className="form-group">
@@ -377,7 +403,7 @@ var ProblemForm = React.createClass({
                         {options}
                     </select>
                 </div>
-                <input type="submit" className="btn btn-default" />
+                <input type="submit" className="btn btn-default" disabled={!this.props.active} />
             </form>
         );
     }
@@ -425,7 +451,8 @@ var Game = React.createClass({
         .then(
             function(data) {
                 console.log(data);
-                that.setState({data: data});
+                that.setState({"data": data});
+                set_problem_form_state(data.problem_name, data.problem_collections, data.dump);
             }
         )
         .catch(
@@ -564,7 +591,13 @@ var Game = React.createClass({
                     <PassButton onMove={this.handleMove} />
                     <Button label="Undo" onClick={this.handleUndo} />
                     <Button label="Book move" onClick={this.handleBook} />
-                    <ProblemForm dump={this.state.data.dump} />
+                    <ProblemForm
+                        name={this.props.data.problem_name}
+                        collections={this.props.data.problem_collections}
+                        dump={this.props.data.dump}
+                        options={this.props.problem_options}
+                        active={this.state.data.active}
+                    />
                 </div>
                 <div className="col-md-3">
                     <Button label="Swap players" onClick={this.handleSwap} />
@@ -586,6 +619,6 @@ var Game = React.createClass({
 
 
 ReactDOM.render(
-    <Game data={window.state} swap_colors={window.swap_colors} />,
+    <Game data={window.state} swap_colors={window.swap_colors} problem_options={window.problem_options} />,
     document.getElementById("container")
 );

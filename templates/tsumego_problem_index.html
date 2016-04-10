@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Problems</h1>
+            {% for collection in collections %}
+                <h2>{{ collection.name }}</h2>
+                <ul>
+                {% for problem in collection.problems %}
+                    <li><a href="{{ problem.url }}">{{ problem.name }}</a></li>
+                {% endfor %}
+                </ul>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}

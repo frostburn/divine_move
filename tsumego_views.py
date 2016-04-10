@@ -16,7 +16,7 @@ from django.shortcuts import redirect, resolve_url
 from django.views.generic import RedirectView, View, TemplateView
 
 from tsumego import *
-from models import TsumegoProblem
+from models import TsumegoProblem, TsumegoCollection
 
 
 def parse_move(move):
@@ -29,7 +29,31 @@ def parse_move(move):
 def get_state_json(state, name):
     state_json = state.to_json()
     state_json["tsumego_url"] = reverse('tsumego', kwargs={'name': name, 'code': state_json["code"]})
+    problem = TsumegoProblem.objects.filter(state_dump=state_json["dump"]).first()
+    if problem is None:
+        state_json["problem_name"] = None
+        state_json["problem_collections"] = []
+    else:
+        state_json["problem_name"] = problem.name
+        state_json["problem_collections"] = [collection.slug for collection in problem.collections.all()]
     return state_json
+
+
+def get_problem_url(problem):
+    base_states = init_query()
+    state = State.load(problem.state_dump)
+    for name, base_state in base_states.items():
+        is_sub_state, colors_match = base_state.has_sub_state(state)
+        if is_sub_state:
+            break
+    else:
+        return None
+    if not colors_match:
+        state.white_to_play = not state.white_to_play
+    code = state.to_code()
+    if not colors_match:
+        code = '_' + code
+    return reverse('tsumego', kwargs={'name': name, 'code': code})
 
 
 class TsumegoResetView(View):
@@ -83,35 +107,34 @@ class TsumegoView(TemplateView):
             state.ko_threats = ko_threats
         context["tsumego_name"] = kwargs["name"]
         context["swap_colors"] = json.dumps(swap_colors)
+        context["problem_options"] = json.dumps(TsumegoCollection.all_to_json())
         state_json = get_state_json(state, kwargs["name"])
         state_json["code"] = code
         context["state"] = json.dumps(state_json)
         return context
 
 
-class TsumegoProblemIndexView(View):
-    def get(self, request, *args, **kwargs):
-        base_states = init_query()
-        content = '<html><body>'
-        for problem in TsumegoProblem.objects.all():
-            state = State.load(problem.state_dump)
-            for name, base_state in base_states.items():
-                is_sub_state, colors_match = base_state.has_sub_state(state)
-                if is_sub_state:
-                    break
-            else:
-                content += problem.name + '<br>'
-                continue
-            if not colors_match:
-                state.white_to_play = not state.white_to_play
-            code = state.to_code()
-            if not colors_match:
-                code = '_' + code
-            content += '<a href="' + reverse('tsumego', kwargs={'name': name, 'code': code}) + '">' + problem.name + '</a><br>'
-            if settings.LOCAL_DEBUG:
-                print state.render()
-        content += '</body></html>'
-        return HttpResponse(content)
+class TsumegoProblemIndexView(TemplateView):
+    template_name = "tsumego_problem_index.html"
+
+    def get_context_data(self, *args, **kwargs):
+        context = super(TsumegoProblemIndexView, self).get_context_data(*args, **kwargs)
+
+        # Hello! I'm a duck!
+        class Uncategorized(object):
+            name = "Uncategorized"
+            problems = TsumegoProblem.objects.filter(collections=None)
+
+        collections = []
+        tsumego_collections = list(TsumegoCollection.objects.all())
+        tsumego_collections.append(Uncategorized)  # Who's a good duck? You are, yes you are!
+        for collection in tsumego_collections:
+            collections.append({
+                "name": collection.name,
+                "problems": [{"name": problem.name, "url": get_problem_url(problem)} for problem in collection.problems.all()]
+            })
+        context["collections"] = collections
+        return context
 
 
 class TsumegoJSONView(View):
@@ -222,6 +245,7 @@ class TsumegoJSONView(View):
         if data["action"] == "add_problem":
             problem, created = TsumegoProblem.objects.get_or_create(state_dump=data["dump"])
             problem.name = data["name"]
+            problem.collections = TsumegoCollection.objects.filter(slug__in=data["collections"])
             problem.save()
         else:
             raise ValueError("Invalid action")
