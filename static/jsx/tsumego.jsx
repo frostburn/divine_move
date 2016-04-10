@@ -71,7 +71,10 @@ var Cell = React.createClass({
         var opponent_color = this.props.white_to_play ? "black" : "white";
         var class_name = color + " " + status + " cell-content";
         if (this.state.hover) {
-            if (this.props.mode === "add_opponent") {
+            if (this.props.mode === "remove") {
+                // No hover.
+            }
+            else if (this.props.mode === "add_opponent") {
                 if (this.props.o_move) {
                     class_name += " " + opponent_color + "-move";
                 }
@@ -558,12 +561,14 @@ var Game = React.createClass({
         this.doFetch("&ko_threats=" + value);
     },
     handleReset: function() {
+        var data = this.props.data;
         this.setState({
             "value": false,
             "swap_colors": this.props.swap_colors,
-            "data": this.props.data,
+            "data": data,
             "undos": []
         });
+        set_problem_form_state(data.problem_name, data.problem_collections, data.dump);
     },
     getInitialState: function() {
         return {
