@@ -1,3 +1,5 @@
+var FETCH_TIMEOUT = 30000  // Thirty seconds.
+
 var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J"];
 
 var Cell = React.createClass({
@@ -368,7 +370,7 @@ var ProblemForm = React.createClass({
         if (!this.props.active) {
             return;
         }
-        var name = this.state.name.trim();
+        var name = (this.state.name || "").trim();
         var collections = this.state.collections;
         var payload = {
             "action": "add_problem",
@@ -385,13 +387,16 @@ var ProblemForm = React.createClass({
         .then(
             function(data) {
                 if (data.success) {
-                    that.setState({"status": "Problem saved successfully."});
+                    that.setState({"status": data.success});
                     setTimeout(function() {
                         that.setState({"status": ""});
                     }, 2000);
                 }
+                else if (data.error) {
+                    that.setState({"status": data.error});
+                }
                 else {
-                    that.setState({"status": "Error saving problem."});
+                    that.setState({"status": "Unknown error saving problem."});
                 }
             }
         )
@@ -454,22 +459,42 @@ function handle_error(data) {
 }
 
 var Game = React.createClass({
-    doFetch: function(params) {
-        if (params.length && !this.state.data.active) {
+    doFetch: function(params, code) {
+        if (this.block_fetch) {
+            return;
+        }
+        this.block_fetch = true;
+        var that = this;
+        // Not a real timeout that cancels the request.
+        // Just lifts the block for new fetches.
+        var fetch_timeout = setTimeout(function () {
+            that.block_fetch = false;
+        }, FETCH_TIMEOUT);
+        var active = code ? true : this.state.data.active;
+        if (params.length && !active) {
             console.log("It's over man.");
             return;
         }
-        var that = this;
         if (this.state.value) {
             params += "&value=1";
         }
         if (this.state.swap_colors) {
             params += "&color=1";
         }
-        if (!this.state.data.active) {
+        if (!active) {
             params += "&dump=" + escape(this.state.data.dump);
         }
-        fetch(window.json_url + "?code=" + escape(this.state.data.code) + params)
+        if (typeof code === "undefined") {
+            code = this.state.data.code;
+        }
+        fetch(window.json_url + "?code=" + escape(code) + params)
+        .then(
+            function(response) {
+                that.block_fetch = false;
+                clearTimeout(fetch_timeout);
+                return Promise.resolve(response);
+            }
+        )
         .then(handle_status)
         .then(to_json)
         .then(handle_error)
@@ -496,19 +521,7 @@ var Game = React.createClass({
     handleUndo: function() {
         var undos = this.state.undos;
         if (undos.length) {
-            var code = undos.pop();
-            var data = this.state.data;
-            var old_code = data.code;
-            data.code = code;  // Evil. Can modify props.
-            var old_active = data.active;
-            data.active = true;
-            this.setState({
-                "undos": undos,
-                "data": data,
-            });
-            this.doFetch("");
-            data.code = old_code;  // Undo the evil.
-            data.active = old_active;
+            this.doFetch("", undos.pop());
         }
     },
     handleMove: function(coords) {
@@ -561,14 +574,10 @@ var Game = React.createClass({
         this.doFetch("&ko_threats=" + value);
     },
     handleReset: function() {
-        var data = this.props.data;
+        this.doFetch("", this.props.data.code);
         this.setState({
-            "value": false,
-            "swap_colors": this.props.swap_colors,
-            "data": data,
             "undos": []
         });
-        set_problem_form_state(data.problem_name, data.problem_collections, data.dump);
     },
     getInitialState: function() {
         return {
@@ -594,7 +603,7 @@ var Game = React.createClass({
             mode_choices.push([mode_options[i], mode_labels[i]]);
         }
         var child_results = [];
-        if (this.state.data.value !== undefined) {
+        if (typeof this.state.data.value !== "undefined") {
             child_results = this.state.data.value.children;
         }
         var player_title = this.state.data.white_to_play ? "White to play" : "Black to play";

@@ -321,6 +321,26 @@ class State(object):
     def active(self):
         return self.passes < 2 and not self.target_dead
 
+    @property
+    def legal(self):
+        empty = self.playing_area & ~self.player
+        for chain in chains(self.opponent):
+            if not liberties(chain, empty) and not (chain & self.immortal):
+                return False
+        empty = self.playing_area & ~self.opponent
+        for chain in chains(self.player):
+            if not liberties(chain, empty) and not (chain & self.immortal):
+                return False
+
+        if self.ko:
+            c = self.copy()
+            c.ko_threats = 1
+            valid, prisoners = c.make_move(self.ko)
+            if not valid or not c.ko:
+                return False
+
+        return True
+
     def fix_targets(self):
         """
         Kill targets without liberties.

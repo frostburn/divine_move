@@ -99,6 +99,8 @@ class TsumegoView(TemplateView):
         swap_colors = code.startswith("_")
         code = code.lstrip("_")
         state = base_state.from_code(code)
+        if not state.legal:
+            raise Http404("Illegal position.")
         state.white_to_play ^= swap_colors
         ko_threats = self.request.GET.get("ko_threats")
         if ko_threats is not None:
@@ -138,11 +140,19 @@ class TsumegoProblemIndexView(TemplateView):
         tsumego_collections = list(TsumegoCollection.objects.all())
         tsumego_collections.append(Uncategorized)  # Who's a good duck? You are, yes you are!
         for collection in tsumego_collections:
-            problems = collection.problems.all()
-            problems = sorted(problems, key=key)
+            problems = []
+            for problem in sorted(collection.problems.filter(archived=False), key=key):
+                url = get_problem_url(problem)
+                if url is None:
+                    # The base state has gone missing.
+                    continue
+                problems.append({
+                    "name": problem.name,
+                    "url": url,
+                })
             collections.append({
                 "name": collection.name,
-                "problems": [{"name": problem.name, "url": get_problem_url(problem)} for problem in problems]
+                "problems": problems,
             })
         context["collections"] = collections
         return context
@@ -165,6 +175,9 @@ class TsumegoJSONView(View):
                 state.update(dump)
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
+
+        if not state.legal:
+            return JsonResponse({"error": "Illegal position"})
 
         ko_threats = srg("ko_threats")
         if ko_threats:
@@ -191,6 +204,10 @@ class TsumegoJSONView(View):
         remove = srg("remove")
         if remove:
             state.remove(parse_move(remove))
+
+        if settings.LOCAL_DEBUG:
+            print state.render()
+            print state.dump()
 
         if srg("book"):
             try:
@@ -235,9 +252,6 @@ class TsumegoJSONView(View):
 
         state.fix_targets()
 
-        if settings.LOCAL_DEBUG:
-            print state.render()
-
         result.update(get_state_json(state, kwargs["name"]))
 
         # The white_to_play bit is used when decoding so we have do some shuffling here.
@@ -255,9 +269,20 @@ class TsumegoJSONView(View):
         data = json.loads(request.body)
         if data["action"] == "add_problem":
             problem, created = TsumegoProblem.objects.get_or_create(state_dump=data["dump"])
-            problem.name = data["name"]
+            name = data["name"]
+            if not name:
+                problem.archived = True
+                if created:
+                    return JsonResponse({"error": "Please enter a name."})
+            else:
+                problem.name = name
+                problem.archived = False
             problem.collections = TsumegoCollection.objects.filter(slug__in=data["collections"])
             problem.save()
+            verb = "created" if created else "updated"
+            if problem.archived:
+                verb = "archived"
+            msg = "Problem {} successfully.".format(verb)
+            return JsonResponse({"success": msg})
         else:
             raise ValueError("Invalid action")
-        return JsonResponse({"success": True})

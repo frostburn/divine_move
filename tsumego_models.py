@@ -10,6 +10,7 @@ class TsumegoProblem(models.Model):
     elo = models.FloatField(default=1500)
     collections = models.ManyToManyField('TsumegoCollection', related_name='problems')
     state_dump = models.CharField(max_length=256)
+    archived = models.BooleanField(default=False)
 
     def __unicode__(self):
         return "%s: %.2f" % (self.name, self.elo)
