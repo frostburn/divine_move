@@ -573,9 +573,12 @@ class State(object):
                     if m & south(pa):
                         vertical += "s"
 
+                removable = bool(m & ~(self.target | self.immortal));
+
                 stone = {
                     "c": color,
                     "s": status,
+                    "r": removable,
                     "x": "%d_%d" % (i, j),
                 }
                 if vertical:
@@ -807,8 +810,9 @@ def get_coords():
         return x, y
 
 
-def format_value(state, value):
-    result = -value.low if state.white_to_play else value.low
+def format_value(state, value, low=True):
+    v = value.low if low else value.high
+    result = -v if state.white_to_play else v
     captures_by_black, captures_by_white = state.get_prisoners()
     result += captures_by_black - captures_by_white
     if result < 0:

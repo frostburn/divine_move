@@ -244,8 +244,9 @@ class TsumegoJSONView(View):
                 assert valid
                 child_results.append([
                     to_coords(move),
-                    format_value(child,child_value),
+                    format_value(child, child_value, low=False),
                     value.low_child(child_value, prisoners),
+                    child_value.to_json(),
                 ])
             result["value"]["children"] = child_results
             result["result"] = format_value(state, value)

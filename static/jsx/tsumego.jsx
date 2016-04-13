@@ -11,7 +11,7 @@ var Cell = React.createClass({
     handleClick: function(e) {
         e.preventDefault();
         this.setState({"hover": false});
-        if (this.props.mode === "remove") {
+        if (this.props.mode === "remove" && this.props.removable) {
             this.props.onMove(this.props.coords);
         }
         if (this.props.mode === "add_opponent") {
@@ -106,6 +106,7 @@ var Row = React.createClass({
             <Cell 
                 color={stone.c}
                 status={stone.s}
+                removable={stone.r}
                 vertical={stone.v}
                 horizontal={stone.h}
                 move={stone.m}
@@ -460,21 +461,21 @@ function handle_error(data) {
 
 var Game = React.createClass({
     doFetch: function(params, code) {
+        var active = code ? true : this.state.data.active;
+        if (params.length && !active) {
+            console.log("It's over man.");
+            return;
+        }
         if (this.block_fetch) {
             return;
         }
         this.block_fetch = true;
         var that = this;
         // Not a real timeout that cancels the request.
-        // Just lifts the block for new fetches.
+        // It just lifts the block for new fetches with undefined behavior. (The last completed fetch stays in effect.)
         var fetch_timeout = setTimeout(function () {
             that.block_fetch = false;
         }, FETCH_TIMEOUT);
-        var active = code ? true : this.state.data.active;
-        if (params.length && !active) {
-            console.log("It's over man.");
-            return;
-        }
         if (this.state.value) {
             params += "&value=1";
         }
