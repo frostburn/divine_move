@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
+import re
+
 from django.db import models
+
+
+def name_key(obj):
+    result = []
+    for part in filter(None, re.split("(\d+)", obj.name)):
+        if part.isdigit():
+            part = int(part)
+        result.append(part)
+    return result
 
 
 class TsumegoProblem(models.Model):
@@ -21,13 +32,13 @@ class TsumegoCollection(models.Model):
     A go problem/puzzle collection.
     """
     name = models.CharField(max_length=512)
-    slug = models.SlugField(max_length=128)
+    slug = models.SlugField(max_length=128, unique=True)
     description = models.TextField(default='')
 
     @classmethod
     def all_to_json(cls):
         result = []
-        for collection in cls.objects.order_by("name"):
+        for collection in sorted(cls.objects.all(), key=name_key):
             result.append({
                 "name": collection.name,
                 "value": collection.slug,

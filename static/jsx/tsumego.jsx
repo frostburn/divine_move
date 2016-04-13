@@ -240,13 +240,17 @@ var InlineRadioGroup = React.createClass({
 var StatsPanel = React.createClass({
     render: function() {
         var data = this.props.data;
+        var link = "N/A"
+        if (data.active) {
+            link = <a href={data.tsumego_url}>{data.url_code}</a>;
+        }
         return (
             <p>
                 Passes: {data.passes}<br />
                 Captures by Black: {data.captures_by_black}<br />
                 Captures by White: {data.captures_by_white}<br />
                 Result: {data.result}<br />
-                Code: <a href={data.tsumego_url}>{data.code}</a>
+                Code: {link}
             </p>
         );
     }

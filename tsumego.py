@@ -616,7 +616,6 @@ class State(object):
             status = "Target eliminated."
 
         result = {
-            "code": self.to_code(),
             "passes": self.passes,
             "ko_threats": self.ko_threats,
             "white_to_play": self.white_to_play,

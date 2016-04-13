@@ -17,7 +17,7 @@ from django.shortcuts import redirect, resolve_url
 from django.views.generic import RedirectView, View, TemplateView
 
 from tsumego import *
-from models import TsumegoProblem, TsumegoCollection
+from models import TsumegoProblem, TsumegoCollection, name_key
 
 
 def parse_move(move):
@@ -27,9 +27,15 @@ def parse_move(move):
     return 1 << (x + V_SHIFT * y)
 
 
-def get_state_json(state, name):
+def get_state_json(state, name, swap_colors):
+    code = state.to_code()
+    if swap_colors:
+        state.white_to_play = not state.white_to_play
     state_json = state.to_json()
-    state_json["tsumego_url"] = reverse('tsumego', kwargs={'name': name, 'code': state_json["code"]})
+    state_json["code"] = code
+    url_code = ("_" if swap_colors else "") + code
+    state_json["url_code"] = url_code
+    state_json["tsumego_url"] = reverse("tsumego", kwargs={"name": name, "code": url_code})
     problem = TsumegoProblem.objects.filter(state_dump=state_json["dump"]).first()
     if problem is None:
         state_json["problem_name"] = None
@@ -53,8 +59,8 @@ def get_problem_url(problem):
         state.white_to_play = not state.white_to_play
     code = state.to_code()
     if not colors_match:
-        code = '_' + code
-    return reverse('tsumego', kwargs={'name': name, 'code': code})
+        code = "_" + code
+    return reverse("tsumego", kwargs={"name": name, "code": code})
 
 
 class TsumegoResetView(View):
@@ -101,7 +107,6 @@ class TsumegoView(TemplateView):
         state = base_state.from_code(code)
         if not state.legal:
             raise Http404("Illegal position.")
-        state.white_to_play ^= swap_colors
         ko_threats = self.request.GET.get("ko_threats")
         if ko_threats is not None:
             ko_threats = int(ko_threats)
@@ -111,8 +116,7 @@ class TsumegoView(TemplateView):
         context["tsumego_name"] = kwargs["name"]
         context["swap_colors"] = json.dumps(swap_colors)
         context["problem_options"] = json.dumps(TsumegoCollection.all_to_json())
-        state_json = get_state_json(state, kwargs["name"])
-        state_json["code"] = code
+        state_json = get_state_json(state, kwargs["name"], swap_colors)
         context["state"] = json.dumps(state_json)
         return context
 
@@ -128,20 +132,12 @@ class TsumegoProblemIndexView(TemplateView):
             name = "Uncategorized"
             problems = TsumegoProblem.objects.filter(collections=None)
 
-        def key(problem):
-            result = []
-            for part in filter(None, re.split("(\d+)", problem.name)):
-                if part.isdigit():
-                    part = int(part)
-                result.append(part)
-            return result
-
         collections = []
         tsumego_collections = list(TsumegoCollection.objects.all())
         tsumego_collections.append(Uncategorized)  # Who's a good duck? You are, yes you are!
-        for collection in tsumego_collections:
+        for collection in sorted(tsumego_collections, key=name_key):
             problems = []
-            for problem in sorted(collection.problems.filter(archived=False), key=key):
+            for problem in sorted(collection.problems.filter(archived=False), key=name_key):
                 url = get_problem_url(problem)
                 if url is None:
                     # The base state has gone missing.
@@ -232,10 +228,6 @@ class TsumegoJSONView(View):
                 return JsonResponse({"error": value.error})
             result["value"] = value.to_json()
 
-        # All the queries have to be done prior to color swapping.
-        if srg("color"):
-            state.white_to_play = not state.white_to_play
-
         if include_value:
             child_results = []
             for move, child_value in children.items():
@@ -253,12 +245,7 @@ class TsumegoJSONView(View):
 
         state.fix_targets()
 
-        result.update(get_state_json(state, kwargs["name"]))
-
-        # The white_to_play bit is used when decoding so we have do some shuffling here.
-        if srg("color"):
-            state.white_to_play = not state.white_to_play
-            result["code"] = state.to_code()
+        result.update(get_state_json(state, kwargs["name"], srg("color")))
 
         return JsonResponse(result)
 
