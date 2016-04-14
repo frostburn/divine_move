@@ -21,6 +21,9 @@ WEST_WALL = 0x40201008040201
 WEST_BLOCK = 0X3FDFEFF7FBFDFEFF
 
 TARGET_SCORE = 63
+TARGET_SCORE_BUFFER = 23
+KILLS = TARGET_SCORE - TARGET_SCORE_BUFFER
+DIES = -KILLS
 
 
 def rectangle(width, height):
@@ -714,6 +717,14 @@ class NodeValue(object):
     def high_child(self, other, prisoners=0):
         return -other.low + prisoners == self.high and other.low_distance + 1 == self.high_distance
 
+    def achieves_goal(self, other, prisoners):
+        if self.low > KILLS:
+            return other.high < DIES
+        elif self.low < DIES:
+            return other.high > KILLS
+        else:
+            return -other.high + prisoners == self.low
+
     def add_prisoners(self, prisoners):
         self.low -= prisoners
         self.high -= prisoners
@@ -787,6 +798,8 @@ def query(state, reverse_target=False):
         _QUERY.expect("\d+ -?\d+ -?\d+ \d+ \d+")
         out = map(int, _QUERY.after.split(" "))
         children[out[0]] = NodeValue(*out[1:])
+    if not v.valid:
+        raise TsumegoError(value.error)
     return v, children
 
 
@@ -823,8 +836,6 @@ def format_value(state, value, low=True):
 
 def get_result(state):
     value, children = query(state)
-    if not value.valid:
-        raise TsumegoError(value.error)
     return format_value(state, value)
 
 
@@ -842,10 +853,23 @@ def get_full_result(state):
     return r
 
 
+def get_goal(state):
+    player = "White" if state.white_to_play else "Black"
+    value, children = query(state)
+    if value.low > KILLS:
+        return "{} to kill".format(player)
+    elif value.low < DIES:
+        return "{} to die gracefully".format(player)
+    elif value.low == 0:
+        return "{} to draw".format(player)
+    elif value.low > 0:
+        return "{} to win by {}".format(player, value.low)
+    else:
+        return "{} to achieve {}".format(player, format_value(state, value))
+
+
 def make_book_move(state, low=False):
     value, children = query(state)
-    if not value.valid:
-        raise TsumegoError(value.error)
     random.shuffle(state.moves)
     for move in state.moves:
         if move not in children:

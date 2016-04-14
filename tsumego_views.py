@@ -27,13 +27,20 @@ def parse_move(move):
     return 1 << (x + V_SHIFT * y)
 
 
-def get_state_json(state, name, swap_colors):
+def get_state_json(state, name, swap_colors, problem_mode=False):
     code = state.to_code()
     if swap_colors:
         state.white_to_play = not state.white_to_play
     state_json = state.to_json()
     state_json["code"] = code
     url_code = ("_" if swap_colors else "") + code
+    if problem_mode:
+        title = get_goal(state)
+    else:
+        title = "White to play" if state.white_to_play else "Black to play"
+        if not state.active:
+            title = ""
+    state_json["title"] = title
     state_json["url_code"] = url_code
     state_json["tsumego_url"] = reverse("tsumego", kwargs={"name": name, "code": url_code})
     problem = TsumegoProblem.objects.filter(state_dump=state_json["dump"]).first()
@@ -60,7 +67,7 @@ def get_problem_url(problem):
     code = state.to_code()
     if not colors_match:
         code = "_" + code
-    return reverse("tsumego", kwargs={"name": name, "code": code})
+    return reverse("tsumego_problem", kwargs={"name": name, "code": code})
 
 
 class TsumegoResetView(View):
@@ -94,6 +101,7 @@ class TsumegoEmptyView(RedirectView):
 
 class TsumegoView(TemplateView):
     template_name = "tsumego.html"
+    problem_mode = False
 
     def get_context_data(self, *args, **kwargs):
         context = super(TsumegoView, self).get_context_data(*args, **kwargs)
@@ -116,9 +124,14 @@ class TsumegoView(TemplateView):
         context["tsumego_name"] = kwargs["name"]
         context["swap_colors"] = json.dumps(swap_colors)
         context["problem_options"] = json.dumps(TsumegoCollection.all_to_json())
-        state_json = get_state_json(state, kwargs["name"], swap_colors)
+        context["problem_mode"] = json.dumps(self.problem_mode)
+        state_json = get_state_json(state, kwargs["name"], swap_colors, self.problem_mode)
         context["state"] = json.dumps(state_json)
         return context
+
+
+class TsumegoProblemView(TsumegoView):
+    problem_mode = True
 
 
 class TsumegoProblemIndexView(TemplateView):
@@ -165,6 +178,8 @@ class TsumegoJSONView(View):
 
         srg = self.request.GET.get
 
+        result = {}
+
         dump = srg("dump")
         if dump:
             try:
@@ -182,12 +197,22 @@ class TsumegoJSONView(View):
                 return JsonResponse({"error": "Invalid ko threats"})
             state.ko_threats = ko_threats
 
+        if srg("problem"):
+            goal_value, children = query(state)
+
         move = srg("move")
         if move:
             # TODO: check that move can be parsed
-            valid, prisoners = state.make_move(parse_move(move))
+            move = parse_move(move)
+            valid, prisoners = state.make_move(move)
             if not valid:
                 return JsonResponse({"error": "Invalid move."})
+
+            if srg("problem"):
+                achieved_value = children[move]
+                result["problem_failed"] = not goal_value.achieves_goal(achieved_value, prisoners)
+                if result.get("problem_failed"):
+                    result["title"] = "Failed"
 
         add_player = srg("add_player")
         if add_player:
@@ -214,18 +239,21 @@ class TsumegoJSONView(View):
         if srg("vs_book"):
             try:
                 make_book_move(state)
+                if srg("problem") and not state.active and not result.get("problem_failed"):
+                    result["problem_solved"] = True
+                    result["title"] = "Correct"
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
 
         if srg("swap"):
             state.swap_players()
 
-        result = {}
         include_value = srg("value") or not state.active;
         if include_value:
-            value, children = query(state, reverse_target=bool(add_player))
-            if not value.valid:
-                return JsonResponse({"error": value.error})
+            try:
+                value, children = query(state, reverse_target=bool(add_player))
+            except TsumegoError as e:
+                return JsonResponse({"error": e.message})
             result["value"] = value.to_json()
 
         if include_value:
@@ -245,32 +273,51 @@ class TsumegoJSONView(View):
 
         state.fix_targets()
 
-        result.update(get_state_json(state, kwargs["name"], srg("color")))
+        # Not passing srg("problem") here because the title isn't dynamically updated.
+        state_json = get_state_json(state, kwargs["name"], srg("color"))
+        state_json.update(result)
 
-        return JsonResponse(result)
+        return JsonResponse(state_json)
 
     @method_decorator(csrf_exempt)  # TOFIX: How about no
     def dispatch(self, *args, **kwargs):
         return super(TsumegoJSONView, self).dispatch(*args, **kwargs)
 
+    def _add_problem(self, data):
+        problem, created = TsumegoProblem.objects.get_or_create(state_dump=data["dump"])
+        name = data["name"]
+        if not name:
+            problem.archived = True
+            if created:
+                return {"error": "Please enter a name."}
+        else:
+            problem.name = name
+            problem.archived = False
+        problem.collections = TsumegoCollection.objects.filter(slug__in=data["collections"])
+        problem.save()
+        verb = "created" if created else "updated"
+        if problem.archived:
+            verb = "archived"
+        msg = "Problem {} successfully.".format(verb)
+        return {"success": msg}
+
+    def _update_elo(self, data):
+        problem = TsumegoProblem.objects.get(state_dump=data["dump"])
+        delta = -1 if data["success"] else 1
+        problem.elo += delta
+        problem.save()
+        return {
+            "name": problem.name,
+            "elo": problem.elo,
+            "delta": delta,
+        }
+
     def post(self, request, *args, **kwargs):
         data = json.loads(request.body)
         if data["action"] == "add_problem":
-            problem, created = TsumegoProblem.objects.get_or_create(state_dump=data["dump"])
-            name = data["name"]
-            if not name:
-                problem.archived = True
-                if created:
-                    return JsonResponse({"error": "Please enter a name."})
-            else:
-                problem.name = name
-                problem.archived = False
-            problem.collections = TsumegoCollection.objects.filter(slug__in=data["collections"])
-            problem.save()
-            verb = "created" if created else "updated"
-            if problem.archived:
-                verb = "archived"
-            msg = "Problem {} successfully.".format(verb)
-            return JsonResponse({"success": msg})
+            result = self._add_problem(data)
+        elif data["action"] == "update_elo":
+            result = self._update_elo(data)
         else:
             raise ValueError("Invalid action")
+        return JsonResponse(result)

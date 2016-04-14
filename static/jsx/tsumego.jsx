@@ -1,3 +1,5 @@
+var NBSP = "\u00a0";
+
 var FETCH_TIMEOUT = 30000  // Thirty seconds.
 
 var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J"];
@@ -244,14 +246,28 @@ var StatsPanel = React.createClass({
         if (data.active) {
             link = <a href={data.tsumego_url}>{data.url_code}</a>;
         }
+        var content = [
+            <p key="passes">Passes: {data.passes}</p>,
+            <p key="black_captures">Captures by Black: {data.captures_by_black}</p>,
+            <p key="white_captures">Captures by White: {data.captures_by_white}</p>,
+        ];
+        if (this.props.problem_mode) {
+            content.unshift(
+                <p key="ko">Ko threats: {data.ko_threats}</p>
+            );
+        }
+        else {
+            content.push(
+                <p key="result">Result: {data.result}</p>
+            );
+            content.push(
+                <p key="code">Code: {link}</p>
+            );
+        }
         return (
-            <p>
-                Passes: {data.passes}<br />
-                Captures by Black: {data.captures_by_black}<br />
-                Captures by White: {data.captures_by_white}<br />
-                Result: {data.result}<br />
-                Code: {link}
-            </p>
+            <div className="stats-panel">
+                {content}
+            </div>
         );
     }
 });
@@ -260,7 +276,7 @@ var StatusRow = React.createClass({
     render: function() {
         var status = this.props.status;
         if (!status.length) {
-            status = "\u00a0";
+            status = NBSP;
         }
         return (
             <p>
@@ -415,8 +431,9 @@ var ProblemForm = React.createClass({
         var options = this.props.options.map((option) => (
             <option key={option.value} value={option.value}>{option.name}</option>
         ));
+        var class_name = this.props.hidden ? "hidden" : "";
         return (
-            <form onSubmit={this.handleSubmit}>
+            <form className={class_name} onSubmit={this.handleSubmit}>
                 <div className="form-group">
                     <label htmlFor="problem_name">Name:</label>
                     <input
@@ -486,6 +503,9 @@ var Game = React.createClass({
         if (this.state.swap_colors) {
             params += "&color=1";
         }
+        if (this.state.problem_mode) {
+            params += "&problem=1";
+        }
         if (!active) {
             params += "&dump=" + escape(this.state.data.dump);
         }
@@ -508,6 +528,38 @@ var Game = React.createClass({
                 console.log(data);
                 that.setState({"data": data});
                 set_problem_form_state(data.problem_name, data.problem_collections, data.dump);
+                if (data.problem_failed || data.problem_solved) {
+                    that.setState({"problem_mode": false});
+                    that.updateElo(!!data.problem_solved);
+                }
+            }
+        )
+        .catch(
+            function(error) {
+                console.log("Request failed", error);
+            }
+        );
+    },
+    updateElo: function(success) {
+        var payload = {
+            "action": "update_elo",
+            "success": success,
+            "dump": this.props.data.dump,
+        };
+        var that = this;
+        fetch(window.json_url, {
+            method: "post",
+            body: JSON.stringify(payload)
+        })
+        .then(to_json)
+        .then(
+            function(data) {
+                var delta = data.delta;
+                if (delta >= 0) {
+                    delta = "+" + delta
+                }
+                var status = data.name + ": " + data.elo + " (" + delta + ")";
+                that.setState({"problem_status": status});
             }
         )
         .catch(
@@ -592,6 +644,8 @@ var Game = React.createClass({
             "swap_colors": this.props.swap_colors,
             "mode": "move",
             "undos": [],
+            "problem_mode": this.props.problem_mode,
+            "problem_status": ""
         };
     },
     render: function() {
@@ -611,15 +665,39 @@ var Game = React.createClass({
         if (typeof this.state.data.value !== "undefined") {
             child_results = this.state.data.value.children;
         }
-        var player_title = this.state.data.white_to_play ? "White to play" : "Black to play";
         var ko_threat_choices = [];
         for (var i = this.state.data.min_ko_threats; i <= this.state.data.max_ko_threats; i++) {
             ko_threat_choices.push([i, i]);
         }
+        var title = this.state.data.title;
+        if (this.state.problem_mode) {
+            title = this.props.data.title;
+        }
+        if (!title.length) {
+            title = NBSP;
+        }
+
+        var extra_move_buttons = [];
+        var edit_controls = [];
+        if (!this.state.problem_mode) {
+            extra_move_buttons = [
+                <Button key="undo" label="Undo" onClick={this.handleUndo} />,
+                <Button key="book" label="Book move" onClick={this.handleBook} />,
+            ];
+            edit_controls = [
+                <Button key="swap" label="Swap players" onClick={this.handleSwap} />,
+                <Button key="reset" label="Reset" onClick={this.handleReset} />,
+                <LabeledCheckBox key="result" label="Show result" checked={this.state.value} onChange={this.handleValueChange} />,
+                <LabeledCheckBox key="vs_book" label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />,
+                <LabeledCheckBox key="color" label="Swap colors" checked={this.state.swap_colors} onChange={this.handleColorChange} />,
+                <InlineRadioGroup key="ko" title="Ko threats:" choices={ko_threat_choices} selected={this.state.data.ko_threats} onChange={this.handleKoThreatsChange} />,
+                <RadioGroup key="mode" choices={mode_choices} selected={this.state.mode} onChange={this.handleModeChange} />,
+            ];
+        }
         return (
             <div className="game row">
                 <div className="col-md-5">
-                    <h3>{player_title}</h3>
+                    <h3>{title}</h3>
                     <Board
                         data={this.state.data.rows}
                         onMove={this.handleMove}
@@ -630,27 +708,22 @@ var Game = React.createClass({
                     />
                     <StatusRow status={this.state.data.status} />
                     <PassButton onMove={this.handleMove} />
-                    <Button label="Undo" onClick={this.handleUndo} />
-                    <Button label="Book move" onClick={this.handleBook} />
+                    {extra_move_buttons}
                     <ProblemForm
                         name={this.props.data.problem_name}
                         collections={this.props.data.problem_collections}
                         dump={this.props.data.dump}
                         options={this.props.problem_options}
                         active={this.state.data.active}
+                        hidden={this.state.problem_mode}  // Hidden instead of removed due to mounting issues.
                     />
                 </div>
                 <div className="col-md-3">
-                    <Button label="Swap players" onClick={this.handleSwap} />
-                    <LabeledCheckBox label="Show result" checked={this.state.value} onChange={this.handleValueChange} />
-                    <LabeledCheckBox label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />
-                    <LabeledCheckBox label="Swap colors" checked={this.state.swap_colors} onChange={this.handleColorChange} />
-                    <InlineRadioGroup title="Ko threats:" choices={ko_threat_choices} selected={this.state.data.ko_threats} onChange={this.handleKoThreatsChange} />
-                    <RadioGroup choices={mode_choices} selected={this.state.mode} onChange={this.handleModeChange} />
-                    <StatsPanel data={this.state.data} />
-                    <Button label="Reset" onClick={this.handleReset} />
+                    {edit_controls}
+                    <StatsPanel data={this.state.data} problem_mode={this.state.problem_mode} />
                 </div>
                 <div className="col-md-4">
+                    <p>{this.state.problem_status}</p>
                     <ChildResults results={child_results} height={this.props.data.height} />
                 </div>
             </div>
@@ -660,6 +733,11 @@ var Game = React.createClass({
 
 
 ReactDOM.render(
-    <Game data={window.state} swap_colors={window.swap_colors} problem_options={window.problem_options} />,
+    <Game
+        data={window.state}
+        swap_colors={window.swap_colors}
+        problem_options={window.problem_options}
+        problem_mode={window.problem_mode}
+    />,
     document.getElementById("container")
 );
