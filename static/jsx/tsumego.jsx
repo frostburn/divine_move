@@ -13,18 +13,13 @@ var Cell = React.createClass({
     handleClick: function(e) {
         e.preventDefault();
         this.setState({"hover": false});
-        if (this.props.mode === "remove" && this.props.removable) {
+        if (
+            (this.props.mode === "remove" && this.props.removable) |
+            (this.props.mode === "add_player" && this.props.add_player) |
+            (this.props.mode === "add_opponent" && this.props.add_opponent) |
+            (this.props.mode === "move" && this.props.move)
+        ){
             this.props.onMove(this.props.coords);
-        }
-        if (this.props.mode === "add_opponent") {
-            if (this.props.o_move) {
-                this.props.onMove(this.props.coords);
-                return;
-            }
-        }
-        else if (this.props.move) {
-            this.props.onMove(this.props.coords);
-            return;
         }
     },
     handleMouseOut: function(e) {
@@ -71,6 +66,9 @@ var Cell = React.createClass({
             default:
                 color = "none";
         }
+        if (color === "ko" && this.props.mode !== "move") {
+            color = "none";
+        }
         var color_to_play = this.props.white_to_play ? "white" : "black";
         var opponent_color = this.props.white_to_play ? "black" : "white";
         var class_name = color + " " + status + " cell-content";
@@ -78,8 +76,13 @@ var Cell = React.createClass({
             if (this.props.mode === "remove") {
                 // No hover.
             }
+            else if (this.props.mode == "add_player") {
+                if (this.props.add_player) {
+                    class_name += " " + color_to_play + "-move";
+                }
+            }
             else if (this.props.mode === "add_opponent") {
-                if (this.props.o_move) {
+                if (this.props.add_opponent) {
                     class_name += " " + opponent_color + "-move";
                 }
             }
@@ -112,7 +115,8 @@ var Row = React.createClass({
                 vertical={stone.v}
                 horizontal={stone.h}
                 move={stone.m}
-                o_move={stone.o}
+                add_player={stone.p}
+                add_opponent={stone.o}
                 coords={stone.x}
                 key={stone.x}
                 last={stone.l}
@@ -626,7 +630,12 @@ var Game = React.createClass({
     handleReset: function() {
         this.doFetch("", this.props.data.dump, this.props.data.captures);
         this.setState({
-            "undos": []
+            "undos": [],
+        });
+    },
+    handleSkip: function() {
+        this.setState({
+            "problem_mode": false,
         });
     },
     getInitialState: function() {
@@ -672,7 +681,11 @@ var Game = React.createClass({
         var extra_move_buttons = [];
         var edit_controls = [];
         var reset_button = null;
-        if (!this.state.problem_mode) {
+        var skip_button = null;
+        if (this.state.problem_mode) {
+            skip_button = <Button key="skip" label="Skip to edit mode" onClick={this.handleSkip} />
+        }
+        else {
             extra_move_buttons = [
                 <Button key="undo" label="Undo" onClick={this.handleUndo} />,
                 <Button key="book" label="Book move" onClick={this.handleBook} />,
@@ -714,6 +727,7 @@ var Game = React.createClass({
                 <div className="col-md-3">
                     {edit_controls}
                     <StatsPanel data={this.state.data} problem_mode={this.state.problem_mode} />
+                    {skip_button}
                     {reset_button}
                 </div>
                 <div className="col-md-4">

@@ -300,18 +300,23 @@ class State(object):
         return True, num_kill
 
     def add_player(self, move):
+        self.ko = 0
         result = self.make_move(move)
         self.swap_players()
         self.last_move = -1
+        self.ko = 0
         return result
 
     def add_opponent(self, move):
+        self.ko = 0
         self.swap_players()
         result = self.make_move(move)
         self.last_move = -1
+        self.ko = 0
         return result
 
     def remove(self, move):
+        self.ko = 0
         self.player &= ~move
         self.opponent &= ~move
         self.last_move = -1
@@ -524,17 +529,24 @@ class State(object):
         captures_by_black, captures_by_white = self.get_prisoners()
 
         moves = 0
-        o_moves = 0
+        add_p = 0
+        add_o = 0
         for move in self.moves:
             child = self.copy()
             valid, prisoners = child.make_move(move)
             if valid:
                 moves |= move
             child = self.copy()
-            child.swap_players()
+            child.ko = 0
             valid, prisoners = child.make_move(move)
             if valid:
-                o_moves |= move
+                add_p |= move
+            child = self.copy()
+            child.swap_players()
+            child.ko = 0
+            valid, prisoners = child.make_move(move)
+            if valid:
+                add_o |= move
 
         target, immortal, escaped = self.flood_fixed()
 
@@ -594,10 +606,21 @@ class State(object):
                         stone["v"] = "d"
                 if m & moves:
                     stone["m"] = True
-                if m & o_moves:
+                if m & add_p:
+                    stone["p"] = True
+                if m & add_o:
                     stone["o"] = True
                 if (self.last_move > 0) and (m & self.last_move):
                     stone["l"] = True
+
+                # Compress the json even further losing some semantics.
+                for key, value in stone.items():
+                    if type(value) is bool:
+                        if value:
+                            stone[key] = 1
+                        else:
+                            del stone[key]
+
                 row.append(stone)
             rows.append({
                 "index": j,
@@ -688,6 +711,17 @@ class State(object):
             return True, False
 
         return False, False
+
+    def to_url_code(self):
+        if not self.active:
+            return None
+        if not self.colors_match:
+            self.white_to_play = not self.white_to_play
+        code = self.to_code()
+        if not self.colors_match:
+            code = "_" + code
+            self.white_to_play = not self.white_to_play
+        return code
 
 
 class NodeValue(object):

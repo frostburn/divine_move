@@ -27,32 +27,27 @@ def parse_move(move):
     return 1 << (x + V_SHIFT * y)
 
 
-def process_for_code(state):
+def process_for_base_state(state):
     base_states = init_query()
     for name, base_state in base_states.items():
         is_sub_state, colors_match = base_state.has_sub_state(state)
         if is_sub_state:
             break
     else:
-        return None, None
+        return None
     if (base_state.white_to_play == state.white_to_play) ^ colors_match:
         state.min_ko_threats = -base_state.max_ko_threats
         state.max_ko_threats = -base_state.min_ko_threats
     else:
         state.min_ko_threats = base_state.min_ko_threats
         state.max_ko_threats = base_state.max_ko_threats
-    if not colors_match:
-        state.white_to_play = not state.white_to_play
-    code = state.to_code()
-    if not colors_match:
-        code = "_" + code
-        state.white_to_play = not state.white_to_play
+    state.colors_match = colors_match
 
-    return name, code
+    return name
 
 
-def get_state_json(state, problem_mode=False):
-    name, url_code = process_for_code(state)
+def get_state_json(state, name, problem_mode=False):
+    url_code = state.to_url_code()
     state_json = state.to_json()
     if problem_mode:
         title = get_goal(state)
@@ -76,8 +71,15 @@ def get_state_json(state, problem_mode=False):
 def get_problem_url(problem):
     base_states = init_query()
     state = State.load(problem.state_dump)
-    name, code = process_for_code(state)
-    return reverse("tsumego_problem", kwargs={"name": name, "code": code})
+    if not state.legal:
+        return None
+    name = process_for_base_state(state)
+    if name is None:
+        return None
+    url_code = state.to_url_code()
+    if url_code is None:
+        return None
+    return reverse("tsumego_problem", kwargs={"name": name, "code": url_code})
 
 
 class TsumegoResetView(View):
@@ -123,8 +125,12 @@ class TsumegoView(TemplateView):
         swap_colors = code.startswith("_")
         code = code.lstrip("_")
         state = base_state.from_code(code)
+        state.colors_match = True
         if swap_colors:
             state.white_to_play = not state.white_to_play
+        if settings.LOCAL_DEBUG:
+            print state.render()
+            print state.dump()
         if not state.legal:
             raise Http404("Illegal position.")
         ko_threats = self.request.GET.get("ko_threats")
@@ -133,10 +139,9 @@ class TsumegoView(TemplateView):
             if not (state.min_ko_threats <= ko_threats <= state.max_ko_threats):
                 raise Http404("Tsumego not found. Too many ko threats.")
             state.ko_threats = ko_threats
-        context["tsumego_name"] = kwargs["name"]
         context["problem_options"] = json.dumps(TsumegoCollection.all_to_json())
         context["problem_mode"] = json.dumps(self.problem_mode)
-        state_json = get_state_json(state, self.problem_mode)
+        state_json = get_state_json(state, kwargs["name"], self.problem_mode)
         context["state"] = json.dumps(state_json)
         return context
 
@@ -184,12 +189,18 @@ class TsumegoJSONView(View):
         state = State.load(self.request.GET["dump"])
         state.captures_by_player, state.captures_by_opponent = map(int, self.request.GET["captures"].split("_"))
 
+        if settings.LOCAL_DEBUG:
+            print state.render()
+            print state.dump()
+
         srg = self.request.GET.get
 
         result = {}
 
         if not state.legal:
             return JsonResponse({"error": "Illegal position"})
+
+        name = process_for_base_state(state)
 
         ko_threats = srg("ko_threats")
         if ko_threats:
@@ -224,10 +235,6 @@ class TsumegoJSONView(View):
         if remove:
             state.remove(parse_move(remove))
 
-        if settings.LOCAL_DEBUG:
-            print state.render()
-            print state.dump()
-
         if srg("book"):
             try:
                 make_book_move(state, low=True)
@@ -245,6 +252,7 @@ class TsumegoJSONView(View):
 
         if srg("swap"):
             state.swap_players()
+            state.ko = 0  # Any ko would be in an illegal position so it has to be cleared.
 
         if srg("color"):
             state.white_to_play = not state.white_to_play
@@ -275,7 +283,7 @@ class TsumegoJSONView(View):
         state.fix_targets()
 
         # Not passing srg("problem") here because the title isn't dynamically updated.
-        state_json = get_state_json(state)
+        state_json = get_state_json(state, name)
         state_json.update(result)
 
         return JsonResponse(state_json)
