@@ -481,8 +481,8 @@ function handle_error(data) {
 }
 
 var Game = React.createClass({
-    doFetch: function(params, code) {
-        var active = code ? true : this.state.data.active;
+    doFetch: function(params, dump, captures) {
+        var active = dump ? true : this.state.data.active;
         if (params.length && !active) {
             console.log("It's over man.");
             return;
@@ -500,19 +500,14 @@ var Game = React.createClass({
         if (this.state.value) {
             params += "&value=1";
         }
-        if (this.state.swap_colors) {
-            params += "&color=1";
-        }
         if (this.state.problem_mode) {
             params += "&problem=1";
         }
-        if (!active) {
-            params += "&dump=" + escape(this.state.data.dump);
+        if (typeof dump === "undefined") {
+            dump = this.state.data.dump;
+            captures = this.state.data.captures;
         }
-        if (typeof code === "undefined") {
-            code = this.state.data.code;
-        }
-        fetch(window.json_url + "?code=" + escape(code) + params)
+        fetch(window.json_url + "?dump=" + escape(dump) + "&captures=" + escape(captures) + params)
         .then(
             function(response) {
                 that.block_fetch = false;
@@ -571,14 +566,15 @@ var Game = React.createClass({
     pushUndo: function() {
         if (this.state.data.active) {
             var undos = this.state.undos;
-            undos.push(this.state.data.code);
+            undos.push([this.state.data.dump, this.state.data.captures]);
             this.setState({"undos": undos});
         }
     },
     handleUndo: function() {
         var undos = this.state.undos;
         if (undos.length) {
-            this.doFetch("", undos.pop());
+            var undo = undos.pop()
+            this.doFetch("", undo[0], undo[1]);
         }
     },
     handleMove: function(coords) {
@@ -619,10 +615,7 @@ var Game = React.createClass({
         this.setState({"vs_book": !this.state.vs_book});
     },
     handleColorChange: function() {
-        // Have to mutate here so that doFetch works correctly.
-        this.state.swap_colors = !this.state.swap_colors;
-        this.setState({"swap_colors": this.state.swap_colors});
-        this.doFetch("");
+        this.doFetch("&color=1");
     },
     handleModeChange: function(mode) {
         this.setState({"mode": mode});
@@ -631,7 +624,7 @@ var Game = React.createClass({
         this.doFetch("&ko_threats=" + value);
     },
     handleReset: function() {
-        this.doFetch("", this.props.data.code);
+        this.doFetch("", this.props.data.dump, this.props.data.captures);
         this.setState({
             "undos": []
         });
@@ -641,7 +634,6 @@ var Game = React.createClass({
             "data": this.props.data,
             "vs_book": true,
             "value": false,
-            "swap_colors": this.props.swap_colors,
             "mode": "move",
             "undos": [],
             "problem_mode": this.props.problem_mode,
@@ -679,6 +671,7 @@ var Game = React.createClass({
 
         var extra_move_buttons = [];
         var edit_controls = [];
+        var reset_button = null;
         if (!this.state.problem_mode) {
             extra_move_buttons = [
                 <Button key="undo" label="Undo" onClick={this.handleUndo} />,
@@ -686,13 +679,13 @@ var Game = React.createClass({
             ];
             edit_controls = [
                 <Button key="swap" label="Swap players" onClick={this.handleSwap} />,
-                <Button key="reset" label="Reset" onClick={this.handleReset} />,
+                <Button key="color" label="Swap colors" onClick={this.handleColorChange} />,
                 <LabeledCheckBox key="result" label="Show result" checked={this.state.value} onChange={this.handleValueChange} />,
                 <LabeledCheckBox key="vs_book" label="Play against the book" checked={this.state.vs_book} onChange={this.handleVsBookChange} />,
-                <LabeledCheckBox key="color" label="Swap colors" checked={this.state.swap_colors} onChange={this.handleColorChange} />,
                 <InlineRadioGroup key="ko" title="Ko threats:" choices={ko_threat_choices} selected={this.state.data.ko_threats} onChange={this.handleKoThreatsChange} />,
                 <RadioGroup key="mode" choices={mode_choices} selected={this.state.mode} onChange={this.handleModeChange} />,
             ];
+            reset_button = <Button key="reset" label="Reset" onClick={this.handleReset} />
         }
         return (
             <div className="game row">
@@ -721,6 +714,7 @@ var Game = React.createClass({
                 <div className="col-md-3">
                     {edit_controls}
                     <StatsPanel data={this.state.data} problem_mode={this.state.problem_mode} />
+                    {reset_button}
                 </div>
                 <div className="col-md-4">
                     <p>{this.state.problem_status}</p>
@@ -735,7 +729,6 @@ var Game = React.createClass({
 ReactDOM.render(
     <Game
         data={window.state}
-        swap_colors={window.swap_colors}
         problem_options={window.problem_options}
         problem_mode={window.problem_mode}
     />,

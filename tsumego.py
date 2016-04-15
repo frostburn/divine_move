@@ -399,7 +399,7 @@ class State(object):
             r += u"White to play"
         else:
             r += u"Black to play"
-        r += u", passes=%d, ko_threats=%d, prisoners=%d, %d" % (self.passes, self.ko_threats, self.captures_by_player, self.captures_by_opponent)
+        r += u", passes=%d, ko_threats=%d, captures=%d, %d" % (self.passes, self.ko_threats, self.captures_by_player, self.captures_by_opponent)
         return r
 
     def dump(self):
@@ -622,6 +622,7 @@ class State(object):
             "passes": self.passes,
             "ko_threats": self.ko_threats,
             "white_to_play": self.white_to_play,
+            "captures": "{}_{}".format(self.captures_by_player, self.captures_by_opponent),
             "captures_by_black": captures_by_black,
             "captures_by_white": captures_by_white,
             "min_ko_threats": self.min_ko_threats,
@@ -799,7 +800,7 @@ def query(state, reverse_target=False):
         out = map(int, _QUERY.after.split(" "))
         children[out[0]] = NodeValue(*out[1:])
     if not v.valid:
-        raise TsumegoError(value.error)
+        raise TsumegoError(v.error)
     return v, children
 
 

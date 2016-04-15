@@ -11,10 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
     <script type="text/javascript">
         window.state = {{ state|safe }};
-        window.swap_colors = {{ swap_colors|safe }};
         window.problem_options = {{ problem_options|safe }};
         window.problem_mode = {{ problem_mode|safe }};
-        window.json_url = "{% url 'tsumego_json' name=tsumego_name %}";
+        window.json_url = "{% url 'tsumego_json' %}";
     </script>
     <script type="text/babel" src="{% static 'jsx/tsumego.jsx' %}"></script>
 {% endblock %}

@@ -34,6 +34,6 @@ urlpatterns = [
     url(r'^tsumego/(?P<name>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoEmptyView.as_view(), name='tsumego_empty'),
     url(r'^tsumego/(?P<name>[a-zA-Z0-9_-]+)/(?P<code>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoView.as_view(), name='tsumego'),
     url(r'^tsumego/problems/(?P<name>[a-zA-Z0-9_-]+)/(?P<code>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoProblemView.as_view(), name='tsumego_problem'),
-    url(r'^json/tsumego/(?P<name>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoJSONView.as_view(), name='tsumego_json'),
+    url(r'^json/tsumego/$', tsumego_views.TsumegoJSONView.as_view(), name='tsumego_json'),
     url(r'^$', views.IndexView.as_view(), name='index'),
 ]
