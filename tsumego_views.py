@@ -200,6 +200,14 @@ class TsumegoJSONView(View):
         if not state.legal:
             return JsonResponse({"error": "Illegal position"})
 
+        # Soft manipulation before processing for base state.
+        if srg("swap"):
+            state.swap_players()
+            state.ko = 0  # Any ko would be in an illegal position so it has to be cleared.
+
+        if srg("color"):
+            state.white_to_play = not state.white_to_play
+
         name = process_for_base_state(state)
 
         ko_threats = srg("ko_threats")
@@ -249,13 +257,6 @@ class TsumegoJSONView(View):
                     result["title"] = "Correct"
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
-
-        if srg("swap"):
-            state.swap_players()
-            state.ko = 0  # Any ko would be in an illegal position so it has to be cleared.
-
-        if srg("color"):
-            state.white_to_play = not state.white_to_play
 
         include_value = srg("value") or not state.active;
         if include_value:
