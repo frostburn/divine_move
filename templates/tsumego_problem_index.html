@@ -11,6 +11,14 @@
                 {% endfor %}
                 </ul>
             {% endfor %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="collection_name">Create new collection</label>
+                    <input type="text" class="form-control" placeholder="Collection name" id="collection_name" name="name">
+                </div>
+                <button type="submit" class="btn btn-defaul">Submit</button>
+            </form>
         </div>
     </div>
 {% endblock %}

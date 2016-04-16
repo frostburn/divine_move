@@ -29,3 +29,18 @@ def code_to_int(code, num_chars=64):
         result *= num_chars
         result += chars64.index(char)
     return result
+
+
+def elo_update(rating_a, rating_b, result, k_factor=32.0):
+    q_a = 10.0 ** (0.0025 * rating_a)
+    q_b = 10.0 ** (0.0025 * rating_b)
+    expectation = q_a / (q_a + q_b)
+    return k_factor * (result - expectation)
+
+
+def format_delta(delta, precission=2):
+    fmt = "{:.%df}" % (precission,)
+    if delta >= 0:
+        return "+" + fmt.format(delta)
+    else:
+        return fmt.format(delta)

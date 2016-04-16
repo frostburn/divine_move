@@ -1,6 +1,6 @@
 var NBSP = "\u00a0";
 
-var FETCH_TIMEOUT = 30000  // Thirty seconds.
+var FETCH_TIMEOUT = 30000;  // Thirty seconds.
 
 var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J"];
 
@@ -406,6 +406,7 @@ var ProblemForm = React.createClass({
         var that = this;
         fetch(window.json_url, {
             method: "post",
+            credentials: "include",
             body: JSON.stringify(payload)
         })
         .then(to_json)
@@ -548,17 +549,18 @@ var Game = React.createClass({
         var that = this;
         fetch(window.json_url, {
             method: "post",
+            credentials: "include",
             body: JSON.stringify(payload)
         })
         .then(to_json)
         .then(
             function(data) {
-                var delta = data.delta;
-                if (delta >= 0) {
-                    delta = "+" + delta
-                }
-                var status = data.name + ": " + data.elo + " (" + delta + ")";
-                that.setState({"problem_status": status});
+                var user_status = "User: " + data.user_elo + " (" + data.user_delta + ")";
+                var problem_status = data.problem_name + ": " + data.problem_elo + " (" + data.problem_delta + ")";
+                that.setState({
+                    "user_status": user_status,
+                    "problem_status": problem_status,
+                });
             }
         )
         .catch(
@@ -646,7 +648,8 @@ var Game = React.createClass({
             "mode": "move",
             "undos": [],
             "problem_mode": this.props.problem_mode,
-            "problem_status": ""
+            "user_status": "",
+            "problem_status": "",
         };
     },
     render: function() {
@@ -731,6 +734,7 @@ var Game = React.createClass({
                     {reset_button}
                 </div>
                 <div className="col-md-4">
+                    <p>{this.state.user_status}</p>
                     <p>{this.state.problem_status}</p>
                     <ChildResults results={child_results} height={this.props.data.height} />
                 </div>

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 
+from django.contrib.auth.models import User
 from django.db import models
 
 
@@ -11,6 +12,12 @@ def name_key(obj):
             part = int(part)
         result.append(part)
     return result
+
+
+class UserProfile(models.Model):
+    user = models.ForeignKey(User, null=True)
+    elo = models.FloatField(default=1500)
+    tried_problems = models.ManyToManyField('TsumegoProblem', related_name='solvers')
 
 
 class TsumegoProblem(models.Model):

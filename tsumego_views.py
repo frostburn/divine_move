@@ -11,13 +11,15 @@ from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.core.urlresolvers import reverse
 from django.utils.decorators import method_decorator
+from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.http import HttpResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, resolve_url
 from django.views.generic import RedirectView, View, TemplateView
 
 from tsumego import *
-from models import TsumegoProblem, TsumegoCollection, name_key
+from models import UserProfile, TsumegoProblem, TsumegoCollection, name_key
+from utils import elo_update
 
 
 def parse_move(move):
@@ -162,9 +164,9 @@ class TsumegoProblemIndexView(TemplateView):
             problems = TsumegoProblem.objects.filter(collections=None)
 
         collections = []
-        tsumego_collections = list(TsumegoCollection.objects.all())
+        tsumego_collections = sorted(TsumegoCollection.objects.all(), key=name_key)
         tsumego_collections.append(Uncategorized)  # Who's a good duck? You are, yes you are!
-        for collection in sorted(tsumego_collections, key=name_key):
+        for collection in tsumego_collections:
             problems = []
             for problem in sorted(collection.problems.filter(archived=False), key=name_key):
                 url = get_problem_url(problem)
@@ -181,6 +183,13 @@ class TsumegoProblemIndexView(TemplateView):
             })
         context["collections"] = collections
         return context
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST["name"]
+        slug = slugify(name)
+        collection = TsumegoCollection.objects.create(name=name, slug=slug)
+        collection.save()
+        return self.get(request, *args, **kwargs)
 
 
 class TsumegoJSONView(View):
@@ -311,15 +320,60 @@ class TsumegoJSONView(View):
         msg = "Problem {} successfully.".format(verb)
         return {"success": msg}
 
-    def _update_elo(self, data):
+    def _get_user_elo(self, request):
+        if request.user.is_anonymous():
+            try:
+                return float(request.session.get("elo"))
+            except (ValueError, TypeError):
+                return 1500.0
+        else:
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            return profile.elo
+
+    def _set_user_elo(self, request, elo, problem):
+        if request.user.is_anonymous():
+            request.session["elo"] = elo
+        else:
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            profile.elo = elo
+            profile.save()
+
+    def _make_solver(self, request, problem):
+        # TODO: Convert sessions to user profiles upon signup.
+        if request.user.is_anonymous():
+            problem_ids = request.session.get("problem_ids", [])
+            if problem.id not in problem_ids:
+                problem_ids.append(problem.id)
+                request.session["problem_ids"] = problem_ids
+                return True
+        else:
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            if not profile.tried_problems.filter(pk=problem.pk).exists():
+                profile.tried_problems.add(problem)
+                profile.save()
+                return True
+        return False
+
+    def _update_elo(self, request, data):
+        user_elo = self._get_user_elo(request)
         problem = TsumegoProblem.objects.get(state_dump=data["dump"])
-        delta = -1 if data["success"] else 1
-        problem.elo += delta
-        problem.save()
+        user_delta = 0
+        problem_delta = 0
+        if self._make_solver(request, problem):
+            result = 1.0 if data["success"] else 0.0
+            user_delta = elo_update(user_elo, problem.elo, result, k_factor=32.0)
+            problem_delta = elo_update(problem.elo, user_elo, 1.0 - result, k_factor=16.0)
+            user_elo += user_delta
+            problem.elo += problem_delta
+            problem.save()
+            self._set_user_elo(request, user_elo, problem)
+        two_decimals = "{:.2f}"
         return {
-            "name": problem.name,
-            "elo": problem.elo,
-            "delta": delta,
+            "user_elo": two_decimals.format(user_elo),
+            "user_delta": format_delta(user_delta),
+            "problem_name": problem.name,
+            "problem_elo": two_decimals.format(problem.elo),
+            "problem_delta": format_delta(problem_delta),
         }
 
     def post(self, request, *args, **kwargs):
@@ -327,7 +381,7 @@ class TsumegoJSONView(View):
         if data["action"] == "add_problem":
             result = self._add_problem(data)
         elif data["action"] == "update_elo":
-            result = self._update_elo(data)
+            result = self._update_elo(request, data)
         else:
             raise ValueError("Invalid action")
         return JsonResponse(result)
