@@ -9,6 +9,7 @@
     {% endif %}
 {% endblock %}
 {% block extra_js %}
+    <script src="{% static 'js/fetch.min.js' %}"></script>
     <script src="{% static 'build/react.js' %}"></script>
     <script src="{% static 'build/react-dom.js' %}"></script>
     {% if development %}
