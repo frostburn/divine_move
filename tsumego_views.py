@@ -147,6 +147,7 @@ class TsumegoView(TemplateView):
         context["problem_mode"] = json.dumps(self.problem_mode)
         state_json = get_state_json(state, kwargs["name"], self.problem_mode)
         context["state"] = json.dumps(state_json)
+        context["development"] = settings.DEBUG
         return context
 
 
