@@ -373,6 +373,7 @@ class TsumegoJSONView(View):
             self._set_user_elo(request, user_elo, problem)
         one_decimal = "{:.1f}"
         return {
+            "navbar_elo": "{:.0f}".format(user_elo),
             "user_elo": one_decimal.format(user_elo),
             "user_delta": format_delta(user_delta),
             "problem_name": problem.name,

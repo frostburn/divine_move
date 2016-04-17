@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Board Explorer 9&times;9 FAQ{% endblock %}
+{% block title %}Tsumego FAQ{% endblock %}
 {% block content %}
     <div class="row">
         <h2>Frequently Asked Questions</h2>
@@ -34,6 +34,20 @@
                 <p>
                   In some problems you also have ko threats at your disposal. You can see the number on the right-hand side. With a ko threat you can take a ko back immediately. If you have negative ko threats it means that they are your opponent's ko threats. In that case avoid ko at all costs.
                 </p>
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingTwoAndHalf">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseTwoAndHalf" aria-expanded="false" aria-controls="collapseTwoAndHalf">
+                  What ruleset is used?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseTwoAndHalf" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwoAndHalf">
+              <div class="panel-body">
+                Modified Japanese rules without super-ko. You get points for each capture, each capture you could make and each point completely surrounded by your stones (territory). Territory includes points under dead (capturable) stones, eyes in seki and false eyes that the opponent cannot force you to fill.
               </div>
             </div>
           </div>

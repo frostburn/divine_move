@@ -561,6 +561,7 @@ var Game = React.createClass({
                     "user_status": user_status,
                     "problem_status": problem_status,
                 });
+                $("#user_elo").text(data.navbar_elo);
             }
         )
         .catch(

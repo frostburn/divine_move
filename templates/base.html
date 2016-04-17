@@ -49,10 +49,10 @@
       </ul>
       <ul class="nav navbar-nav navbar-right">
         {% if user.is_authenticated %}
-          <li><a href="{% url 'profile' %}">{{ user.username }} ({{ user.profile.elo|floatformat:0 }})</a></li>
+          <li><a href="{% url 'profile' %}">{{ user.username }} (<span id="user_elo">{{ user.profile.elo|floatformat:0 }}</span>)</a></li>
           <li><a href="{% url 'logout' %}">Logout</a></li>
         {% else %}
-          <li><a href="{% url 'signup' %}">Unregistered ({{ request.session.elo|default:1500|floatformat:0 }})</a></li>
+          <li><a href="{% url 'signup' %}">Unregistered (<span id="user_elo">{{ request.session.elo|default:1500|floatformat:0 }}</span>)</a></li>
           <li><a href="{% url 'login' %}">Login</a></li>
           <li><a href="{% url 'signup' %}">Signup</a></li>
         {% endif %}
