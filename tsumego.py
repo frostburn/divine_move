@@ -9,6 +9,7 @@ import pexpect
 from go_board import ALPHA, popcount
 from utils import *
 
+QUERY_TIMEOUT = 120
 
 WIDTH = 9
 HEIGHT = 7
@@ -792,7 +793,7 @@ def init_query():
     if _QUERY is None:
         os.chdir(settings.TSUMEGO_QUERY_PATH)
         filenames = [name + "_japanese.dat" for name in settings.TSUMEGO_NAMES]
-        _QUERY = pexpect.spawn("./query " + " ".join(filenames), echo=False)
+        _QUERY = pexpect.spawn("./query " + " ".join(filenames), echo=False, timeout=QUERY_TIMEOUT)
         for name in settings.TSUMEGO_NAMES:
             _QUERY.expect(" ".join(["-?\d+"] * 9))
             BASE_STATES[name] = State.load(_QUERY.after)
