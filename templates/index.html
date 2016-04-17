@@ -2,22 +2,14 @@
 {% block content %}
     <div class="row">
         <h2>Collaborative game exploration</h2>
-        <a href="{% url 'go9x9_empty' %}">Board Explorer 9&times;9</a>
-        <h2>Perfectly solved two player games of perfect information</h2>
-        <a href="{% url 'go_index' %}">Go on tiny boards</a><br>
-        <a href="{% url 'chess_index' %}">Chess endgames</a>
-        <p>Note that the rules of the games have been slightly modified to be more elegant from a game theoretic perspective. This can make things a little strange at times when repeating positions are involved.</p>
-        <p>Everything is still pretty much in beta stage right now. Here's a list of features planned if there's enough interest.</p>
         <ul>
-            <li>Registering an actual domain</li>
-            <li>User accounts</li>
-            <li>Rating positions</li>
-            <li>Commenting on positions</li>
-            <li>Favorites and collections</li>
-            <li>Elo type difficulty rating for positions and a corresponding skill rating for users</li>
-            <li>More fully editable categories like the most important 5 piece chess endgames and 5x4 go</li>
-            <li>Non-editable positions with a book answer for every possible user move. These include arbitrary chess problems with relatively low move limits, 5x5 go and carefully crafted go problems with immortal stones and limited playing area that make finding perfect solutions feasible.</li>
-            <li>Standard human friendly rulesets</li>
+            <li><a href="{% url 'go9x9_empty' %}">Board Explorer 9&times;9</a></li>
+        </ul>
+        <h2>Perfectly solved go positions</h2>
+        <ul>
+            <li><a href="{% url 'tsumego_problems' %}">Problems</a></li>
+            <li><a href="{% url 'tsumego_index' %}">Templates (make your own problems)</a></li>
+            <li><a href="{% url 'tsumego_faq' %}">FAQ</a></li>
         </ul>
         <p>There probably should be a donate button somewhere around here. The servers don't run themselves, you know. In the mean time have $10 worth of credit on <a href="https://www.digitalocean.com/?refcode=714c4c1dc08a">DigitalOcean</a> cloud hosting. (If you follow the link with the ref code intact I get $25 once you've spent $25. This helps cover the hosting costs.)</p>
         <p>If you have any comments, questions or bug reports, feel free to contact me at <a href="mailto:lumi.pakkanen@gmail.com">lumi.pakkanen@gmail.com</a>.</p>

@@ -42,6 +42,15 @@ class CompleteUserCreationForm(UserCreationForm):
         model = UserCreationForm.Meta.model
         fields = ("username", "email", "first_name", "last_name")
 
+
+def _create_user_profile(request, user):
+    profile = UserProfile.objects.create(user=user)
+    profile.elo = request.session.get("elo", 1500.0)
+    for problem in TsumegoProblem.objects.filter(pk__in=request.session.get("problem_ids", [])):
+        profile.tried_problems.add(problem)
+    profile.save()
+
+
 def signup(
         request,
         template_name='registration/signup.html',
@@ -66,6 +75,7 @@ def signup(
 
             # Okay, security check complete. Log the user in.
             user = form.save()
+            _create_user_profile(request, user)
             user = authenticate(username=form.cleaned_data["username"], password=form.cleaned_data["password1"])
             auth_login(request, user)
 

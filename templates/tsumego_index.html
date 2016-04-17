@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Go problems / Tsumego</h1>
+            <ul>
+                <li><a class="h3" href="{% url 'tsumego_problems' %}">Browse the problem collections</a></li>
+                <li>
+                    <h3>Compose your own problems / explore solutions</h3>
+                    <h4>Available templates</h4>
+                    <ul>
+                        {% for name in templates %}
+                            <li><a href="{% url 'tsumego_empty' name %}">{{ name }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+{% endblock %}

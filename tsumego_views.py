@@ -55,8 +55,6 @@ def get_state_json(state, name, problem_mode=False):
         title = get_goal(state)
     else:
         title = "White to play" if state.white_to_play else "Black to play"
-        if not state.active:
-            title = ""
     state_json["title"] = title
     state_json["url_code"] = url_code
     state_json["tsumego_url"] = reverse("tsumego", kwargs={"name": name, "code": url_code})
@@ -71,6 +69,8 @@ def get_state_json(state, name, problem_mode=False):
 
 
 def get_problem_url(problem):
+    if problem.archived:
+        return None
     base_states = init_query()
     state = State.load(problem.state_dump)
     if not state.legal:
@@ -84,21 +84,23 @@ def get_problem_url(problem):
     return reverse("tsumego_problem", kwargs={"name": name, "code": url_code})
 
 
+class TsumegoFAQView(TemplateView):
+    template_name = "tsumego_faq.html"
+
+
 class TsumegoResetView(View):
     def get(self, request):
         return HttpResponse(reset_query())
 
 
-class TsumegoIndexView(View):
-    def get(self, request, *args, **kwargs):
+class TsumegoIndexView(TemplateView):
+    template_name = "tsumego_index.html"
+
+    def get_context_data(self, *args, **kwargs):
+        context = super(TsumegoIndexView, self).get_context_data(*args, **kwargs)
         base_states = init_query()
-        content = '<html><body>'
-        for name in sorted(base_states.keys()):
-            content += '<a href="' + reverse('tsumego_empty', kwargs={'name': name}) + '">' + name + '</a><br>'
-            if settings.LOCAL_DEBUG:
-                print base_states[name].render()
-        content += '</body></html>'
-        return HttpResponse(content)
+        context["templates"] = sorted(name for name in base_states.keys() if name != "design")
+        return context
 
 
 class TsumegoEmptyView(RedirectView):
@@ -175,6 +177,7 @@ class TsumegoProblemIndexView(TemplateView):
                     continue
                 problems.append({
                     "name": problem.name,
+                    "elo": problem.elo,
                     "url": url,
                 })
             collections.append({
@@ -274,8 +277,9 @@ class TsumegoJSONView(View):
             except TsumegoError as e:
                 return JsonResponse({"error": e.message})
             result["value"] = value.to_json()
+            if not srg("problem") and not state.active:
+                result["title"] = get_achieved_goal(state, value)
 
-        if include_value:
             child_results = []
             for move, child_value in children.items():
                 child = state.copy()
@@ -339,7 +343,6 @@ class TsumegoJSONView(View):
             profile.save()
 
     def _make_solver(self, request, problem):
-        # TODO: Convert sessions to user profiles upon signup.
         if request.user.is_anonymous():
             problem_ids = request.session.get("problem_ids", [])
             if problem.id not in problem_ids:
@@ -367,21 +370,36 @@ class TsumegoJSONView(View):
             problem.elo += problem_delta
             problem.save()
             self._set_user_elo(request, user_elo, problem)
-        two_decimals = "{:.2f}"
+        one_decimal = "{:.1f}"
         return {
-            "user_elo": two_decimals.format(user_elo),
+            "user_elo": one_decimal.format(user_elo),
             "user_delta": format_delta(user_delta),
             "problem_name": problem.name,
-            "problem_elo": two_decimals.format(problem.elo),
+            "problem_elo": one_decimal.format(problem.elo),
             "problem_delta": format_delta(problem_delta),
         }
 
+    def _next_problem(self, request):
+        if request.user.is_anonymous():
+            problem_ids = request.session.get("problem_ids", [])
+        else:
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            problem_ids = profile.tried_problems.values_list("pk", flat=True)
+        for problem in TsumegoProblem.objects.exclude(pk__in=problem_ids).order_by("?"):
+            url = get_problem_url(problem)
+            if url is not None:
+                return {"href": url, "success": True}
+        return {"success": False}
+
     def post(self, request, *args, **kwargs):
         data = json.loads(request.body)
-        if data["action"] == "add_problem":
+        action = data["action"]
+        if action == "add_problem":
             result = self._add_problem(data)
-        elif data["action"] == "update_elo":
+        elif action == "update_elo":
             result = self._update_elo(request, data)
+        elif action == "next_problem":
+            result = self._next_problem(request)
         else:
             raise ValueError("Invalid action")
         return JsonResponse(result)

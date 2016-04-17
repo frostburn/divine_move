@@ -7,7 +7,7 @@
                 <h2>{{ collection.name }}</h2>
                 <ul>
                 {% for problem in collection.problems %}
-                    <li><a href="{{ problem.url }}">{{ problem.name }}</a></li>
+                    <li><a href="{{ problem.url }}">{{ problem.name }}</a> <small>({{problem.elo|floatformat:1}})</small></li>
                 {% endfor %}
                 </ul>
             {% endfor %}

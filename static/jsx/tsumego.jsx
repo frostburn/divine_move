@@ -179,7 +179,7 @@ var PassButton = React.createClass({
 
 var Button = React.createClass({
     render: function() {
-        return <button className="btn btn-default" onClick={this.props.onClick}>{this.props.label}</button>
+        return <button className={(this.props.className || "") + " btn btn-default"} onClick={this.props.onClick}>{this.props.label}</button>
     }
 });
 
@@ -639,6 +639,37 @@ var Game = React.createClass({
         this.setState({
             "problem_mode": false,
         });
+        this.doFetch("");  // Updates the title.
+    },
+    handleNext: function() {
+        var payload = {
+            "action": "next_problem",
+        };
+        var that = this;
+        fetch(window.json_url, {
+            method: "post",
+            credentials: "include",
+            body: JSON.stringify(payload)
+        })
+        .then(to_json)
+        .then(
+            function(data) {
+                if (data.success) {
+                    window.location.href = data.href;
+                }
+                else {
+                    that.setState({
+                        "user_status": "You have tried all the available problems.",
+                        "problem_status": "",
+                    });
+                }
+            }
+        )
+        .catch(
+            function(error) {
+                console.log("Request failed", error);
+            }
+        );
     },
     getInitialState: function() {
         return {
@@ -732,6 +763,7 @@ var Game = React.createClass({
                     <StatsPanel data={this.state.data} problem_mode={this.state.problem_mode} />
                     {skip_button}
                     {reset_button}
+                    <Button className="next-problem" label="Next problem" onClick={this.handleNext} />
                 </div>
                 <div className="col-md-4">
                     <p>{this.state.user_status}</p>

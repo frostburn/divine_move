@@ -38,7 +38,7 @@ def elo_update(rating_a, rating_b, result, k_factor=32.0):
     return k_factor * (result - expectation)
 
 
-def format_delta(delta, precission=2):
+def format_delta(delta, precission=1):
     fmt = "{:.%df}" % (precission,)
     if delta >= 0:
         return "+" + fmt.format(delta)

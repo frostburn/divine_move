@@ -888,19 +888,39 @@ def get_full_result(state):
     return r
 
 
-def get_goal(state):
+def get_goal(state, value=None):
     player = "White" if state.white_to_play else "Black"
-    value, children = query(state)
-    if value.low > KILLS:
+    if value is None:
+        value, children = query(state)
+    value = value.low + state.captures_by_player - state.captures_by_opponent
+    if value > KILLS:
         return "{} to kill".format(player)
-    elif value.low < DIES:
+    elif value < DIES:
         return "{} to die gracefully".format(player)
-    elif value.low == 0:
+    elif value == 0:
         return "{} to draw".format(player)
-    elif value.low > 0:
-        return "{} to win by {}".format(player, value.low)
+    elif value > 0:
+        return "{} to win by {}".format(player, value)
     else:
-        return "{} to achieve {}".format(player, format_value(state, value))
+        return "{} to lose by {}".format(player, -value)
+
+
+def get_achieved_goal(state, value=None):
+    player = "White" if state.white_to_play else "Black"
+    opponent = "Black" if state.white_to_play else "White"
+    if value is None:
+        value, children = query(state)
+    value = value.low + state.captures_by_player - state.captures_by_opponent
+    if value > KILLS:
+        return "{} is dead".format(opponent)
+    elif value < DIES:
+        return "{} is dead".format(player)
+    elif value == 0:
+        return "Draw"
+    elif value > 0:
+        return "{} won by {}".format(player, value)
+    else:
+        return "{} won by {}".format(opponent, -value)
 
 
 def make_book_move(state, low=False):

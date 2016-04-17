@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Board Explorer 9&times;9 FAQ{% endblock %}
+{% block content %}
+    <div class="row">
+        <h2>Frequently Asked Questions</h2>
+        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingOne">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                  What is this tool?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+              <div class="panel-body">
+                The Go problems / Tsumego tool is a collection of perfectly solved board positions with japanese rules.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingTwo">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                  How do I use it?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseTwo" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+              <div class="panel-body">
+                <p>
+                  You can start with the <a href="{% url 'tsumego_problems' %}">problems</a>. There are two types of special stones green and red. Green stones cannot be captured even if they are reduced to zero liberties. They are effectively immortal. Red stones on the other hand can only be captured once which results in an instant win for the capturing player. In most of the problems the objective is to capture or protect the red stones. Red stones connected to green stones turn yellow, but that just means that they have escaped and can no longer be captured.
+                </p>
+                <p>
+                  In some problems you also have ko threats at your disposal. You can see the number on the right-hand side. With a ko threat you can take a ko back immediately. If you have negative ko threats it means that they are your opponent's ko threats. In that case avoid ko at all costs.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingThree">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                  How do I make my own problems?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseThree" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingThree">
+              <div class="panel-body">
+                Pick a template from the list on the <a href="{% url 'tsumego_index' %}">index page</a> and start experimenting using the <strong>Add Black/White</strong> tool. Remember to check the <strong>Show result</strong> box to make sure that your problem has the solution you intended. Once you are happy with your problem just enter a name in the box bellow and click submit. You can also select the collections you want your problem to be included in. The problem will now appear on the <a href="{% url 'tsumego_problems' %}">problems</a> page.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingFour">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                  How do I test my problem before submitting?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseFour" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFour">
+              <div class="panel-body">
+                You can click on the <strong>Code</strong> permalink and play against the book to make sure the problem unfolds as expected.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingFive">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+                  Why is the computer such an annoying opponent?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseFive" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFive">
+              <div class="panel-body">
+                The computer/book plays moves that delay the game as long as possible. That is why it will play every local ko threat it can find before passing. Please note that there is no super-ko rule. The book will happily loop until you give up.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingSix">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+                  The computer plays unchallenging moves. Can that be fixed?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseSix" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingSix">
+              <div class="panel-body">
+                The computer/book plays moves that it finds optimal. It will not play moves that lose points even if they seem like the strongest resistance. From equally good moves it doesn't know which one is the most difficult for a human to answer and picks one at random.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingSeven">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
+                  Can I add my own templates?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseSeven" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingSeven">
+              <div class="panel-body">
+                Sorry, no. A template can take gigabytes of storage and require days to solve. If you have a good idea for a general template with many interesting solutions you can contact me at <a href="mailto:lumi.pakkanen@gmail.com">lumi.pakkanen@gmail.com</a>.
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingEight">
+              <h4 class="panel-title">
+                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
+                  How did you make this?
+                </a>
+              </h4>
+            </div>
+            <div id="collapseEight" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingEight">
+              <div class="panel-body">
+                The book is composed in the same way as chess endgame tables. First the solver finds all legal positions in a template, removes the ones that are mirror/color flips of each other and arranges the remaining positions into an array. Then the solver iterates over the whole array until every position has a minimax value that doesn't change. The final solution is added to the database and can be queried through this web page.
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+{% endblock %}

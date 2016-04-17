@@ -15,7 +15,7 @@ def name_key(obj):
 
 
 class UserProfile(models.Model):
-    user = models.ForeignKey(User, null=True)
+    user = models.OneToOneField(User, related_name='profile')
     elo = models.FloatField(default=1500)
     tried_problems = models.ManyToManyField('TsumegoProblem', related_name='solvers')
 
