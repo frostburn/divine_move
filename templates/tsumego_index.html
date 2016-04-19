@@ -10,8 +10,13 @@
                     <h3>Compose your own problems / explore solutions</h3>
                     <h4>Available templates</h4>
                     <ul>
-                        {% for name in templates %}
-                            <li><a href="{% url 'tsumego_empty' name %}">{{ name }}</a></li>
+                        {% for template in templates|dictsort:"name" %}
+                            <li>
+                                <a href="{% url 'tsumego_empty' template.name %}">
+                                    <img class="img-thumbnail" src="{% url 'tsumego_image' template.state.playing_area template.state.black template.state.white %}">
+                                    {{ template.name }}
+                                </a>
+                            </li>
                         {% endfor %}
                     </ul>
                 </li>

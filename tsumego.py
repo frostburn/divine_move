@@ -421,14 +421,27 @@ class State(object):
             self.white_to_play
         )
 
-    def get_colors(self):
+    def _get_black(self):
+        return self.opponent if self.white_to_play else self.player
+
+    def _set_black(self, value):
         if self.white_to_play:
-            white = self.player
-            black = self.opponent
+            self.opponent = value
         else:
-            black = self.player
-            white = self.opponent
-        return black, white
+            self.player = value
+
+    black = property(_get_black, _set_black)
+
+    def _get_white(self):
+        return self.player if self.white_to_play else self.opponent
+
+    def _set_white(self, value):
+        if self.white_to_play:
+            self.player = value
+        else:
+            self.opponent = value
+
+    white = property(_get_white, _set_white)
 
     def get_prisoners(self):
         if self.white_to_play:
@@ -526,7 +539,6 @@ class State(object):
         return pt | ot, pi | oi, pe | oe
 
     def to_json(self):
-        black, white = self.get_colors()
         captures_by_black, captures_by_white = self.get_prisoners()
 
         moves = 0
@@ -559,9 +571,9 @@ class State(object):
             for i in range(self.row_widths[j]):
                 # Most of the JSON response is stone data so we compress it to single letters in the interest of bandwidth.
                 m = 1 << (i + j * V_SHIFT)
-                if m & black:
+                if m & self.black:
                     color = "b"
-                elif m & white:
+                elif m & self.white:
                     color = "w"
                 elif m & self.ko:
                     color = "k"
@@ -681,13 +693,13 @@ class State(object):
         )
         if not layout_matches:
             return False, False
-        black, white = self.get_colors()
+        black, white = self.black, self.white
         black_target = black & self.target
         white_target = white & self.target
         black_immortal = black & self.immortal
         white_immortal = white & self.immortal
 
-        black, white = other.get_colors()
+        black, white = other.black, other.white
         o_black_target = black & other.target
         o_white_target = white & other.target
         o_black_immortal = black & other.immortal

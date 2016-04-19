@@ -459,7 +459,7 @@ var ProblemForm = React.createClass({
                         {options}
                     </select>
                 </div>
-                <input type="submit" className="btn btn-default" disabled={!this.props.active} />
+                <input type="submit" className="btn btn-default" disabled={!this.props.active} value="Submit" />
                 <span className="problem-status">{this.state.status}</span>
             </form>
         );

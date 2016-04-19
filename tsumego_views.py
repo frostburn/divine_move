@@ -22,6 +22,9 @@ from models import UserProfile, TsumegoProblem, TsumegoCollection, name_key
 from utils import elo_update
 
 
+THUMBNAIL_SIZE = 50
+
+
 def parse_move(move):
     if move == "pass":
         return 0
@@ -99,7 +102,15 @@ class TsumegoIndexView(TemplateView):
     def get_context_data(self, *args, **kwargs):
         context = super(TsumegoIndexView, self).get_context_data(*args, **kwargs)
         base_states = init_query()
-        context["templates"] = sorted(name for name in base_states.keys() if name != "design")
+        templates = []
+        for name, state in base_states.items():
+            if name == "design":
+                continue
+            templates.append({
+                "name": name,
+                "state": state,
+            })
+        context["templates"] = templates
         return context
 
 
@@ -179,6 +190,7 @@ class TsumegoProblemIndexView(TemplateView):
                 problems.append({
                     "name": problem.name,
                     "elo": problem.elo,
+                    "state": problem.state,
                     "url": url,
                 })
             collections.append({
@@ -405,3 +417,63 @@ class TsumegoJSONView(View):
         else:
             raise ValueError("Invalid action")
         return JsonResponse(result)
+
+class TsumegoImageView(View):
+    def get(self, request, *args, **kwargs):
+        state = State(int(kwargs["playing_area"]))
+        state.black = int(kwargs["black"])
+        state.white = int(kwargs["white"])
+        state.max_ko_threats = 0
+        state.min_ko_threats = 0
+        state_json = state.to_json()
+
+        from PIL import Image, ImageDraw
+        unit = 60
+        line_color = "#210"
+        def circle(draw, x, y, padding=0.09, fill=None):
+            draw.ellipse(((x + padding) * unit, (y + padding) * unit, (x + 1 - padding) * unit, (y + 1 - padding) * unit), fill=fill)
+        def line_h(draw, x1, x2, y, fill=None):
+            y += 0.5
+            y *= unit
+            draw.line((x1 * unit, y, x2 * unit, y), fill=fill, width=2)
+        def line_v(draw, x, y1, y2, fill=None):
+            x += 0.5
+            x *= unit
+            draw.line((x, y1 * unit, x, y2 * unit), fill=fill, width=2)
+        image = Image.new("RGB", (state_json["width"] * unit, state_json["height"] * unit), "#db7")
+        draw = ImageDraw.Draw(image)
+        y = 0
+        for row in state_json["rows"]:
+            x = 0
+            for stone in row["stones"]:
+                horizontal = stone.get("h", "")
+                vertical = stone.get("v", "")
+                if "e" in horizontal:
+                    line_h(draw, x, x + 0.5, y, fill=line_color)
+                if "w" in horizontal:
+                    line_h(draw, x + 0.5, x + 1, y, fill=line_color)
+                if "d" in horizontal:
+                    circle(draw, x, y, 0.4, fill=line_color)
+                if "s" in vertical:
+                    line_v(draw, x, y, y + 0.5, fill=line_color)
+                if "n" in vertical:
+                    line_v(draw, x, y + 0.5, y + 1, fill=line_color)
+                if "d" in vertical:
+                    circle(draw, x, y, 0.4, fill=line_color)
+                color = stone["c"]
+                if color == "b":
+                    color = "black"
+                elif color == "w":
+                    color = "white"
+                else:
+                    color = None
+                if color:
+                    circle(draw, x, y, fill=color)
+                x += 1
+            y += 1
+        response = HttpResponse(content_type="image/png")
+        del draw
+        factor = THUMBNAIL_SIZE / max(image.width, image.height)
+        image.thumbnail((factor * image.width, factor * image.height))
+        image.save(response, "PNG")
+        return response

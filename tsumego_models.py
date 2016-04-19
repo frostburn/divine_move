@@ -4,6 +4,8 @@ import re
 from django.contrib.auth.models import User
 from django.db import models
 
+from tsumego import State
+
 
 def name_key(obj):
     result = []
@@ -29,6 +31,14 @@ class TsumegoProblem(models.Model):
     collections = models.ManyToManyField('TsumegoCollection', related_name='problems')
     state_dump = models.CharField(max_length=256)
     archived = models.BooleanField(default=False)
+
+    _state_obj = None
+
+    @property
+    def state(self):
+        if self._state_obj is None:
+            self._state_obj = State.load(self.state_dump)
+        return self._state_obj
 
     def __unicode__(self):
         return "%s: %.2f" % (self.name, self.elo)
