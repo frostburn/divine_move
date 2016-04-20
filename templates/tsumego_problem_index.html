@@ -8,9 +8,13 @@
                 <h2>{{ collection.name }}</h2>
                 <ul>
                 {% for problem in collection.problems %}
-                    <li>
+                    <li class="tsumego-item">
                         <a href="{{ problem.url }}">
-                            <img class="img-thumbnail" src="{% url 'tsumego_image' problem.state.playing_area problem.state.black problem.state.white %}">
+                            <img
+                                src="{% url 'tsumego_image' problem.state.playing_area problem.state.black problem.state.white %}"
+                                width="{{ problem.thumbnail.0 }}"
+                                height="{{ problem.thumbnail.1 }}"
+                            >
                             {{ problem.name }}
                         </a>
                         <small>({{problem.elo|floatformat:1}})</small>

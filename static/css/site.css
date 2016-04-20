@@ -40,3 +40,10 @@ body {
 .container .text-muted {
   margin: 20px 0;
 }
+
+
+/* Tsumego */
+.tsumego-item {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}

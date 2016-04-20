@@ -11,9 +11,13 @@
                     <h4>Available templates</h4>
                     <ul>
                         {% for template in templates|dictsort:"name" %}
-                            <li>
+                            <li class="tsumego-item">
                                 <a href="{% url 'tsumego_empty' template.name %}">
-                                    <img class="img-thumbnail" src="{% url 'tsumego_image' template.state.playing_area template.state.black template.state.white %}">
+                                    <img
+                                        src="{% url 'tsumego_image' template.state.playing_area template.state.black template.state.white %}"
+                                        width="{{ template.thumbnail.0 }}"
+                                        height="{{ template.thumbnail.1 }}"
+                                    >
                                     {{ template.name }}
                                 </a>
                             </li>

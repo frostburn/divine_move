@@ -109,6 +109,7 @@ class TsumegoIndexView(TemplateView):
             templates.append({
                 "name": name,
                 "state": state,
+                "thumbnail": get_thubnail_dimensions(state)
             })
         context["templates"] = templates
         return context
@@ -191,6 +192,7 @@ class TsumegoProblemIndexView(TemplateView):
                     "name": problem.name,
                     "elo": problem.elo,
                     "state": problem.state,
+                    "thumbnail": get_thubnail_dimensions(problem.state),
                     "url": url,
                 })
             collections.append({
@@ -418,6 +420,10 @@ class TsumegoJSONView(View):
             raise ValueError("Invalid action")
         return JsonResponse(result)
 
+def get_thubnail_dimensions(state):
+    factor = THUMBNAIL_SIZE / float(max(state.width, state.height))
+    return (int(factor * state.width), int(factor * state.height))
+
 class TsumegoImageView(View):
     def get(self, request, *args, **kwargs):
         state = State(int(kwargs["playing_area"]))
@@ -428,7 +434,8 @@ class TsumegoImageView(View):
         state_json = state.to_json()
 
         from PIL import Image, ImageDraw
-        unit = 60
+        unit = 60.0
+        padding = 0.1
         line_color = "#210"
         def circle(draw, x, y, padding=0.09, fill=None):
             draw.ellipse(((x + padding) * unit, (y + padding) * unit, (x + 1 - padding) * unit, (y + 1 - padding) * unit), fill=fill)
@@ -440,11 +447,24 @@ class TsumegoImageView(View):
             x += 0.5
             x *= unit
             draw.line((x, y1 * unit, x, y2 * unit), fill=fill, width=2)
-        image = Image.new("RGB", (state_json["width"] * unit, state_json["height"] * unit), "#db7")
+        image = Image.new("RGBA", (int((state.width + 2 * padding) * unit), int((state.height + 2 * padding) * unit)), "#db7")
         draw = ImageDraw.Draw(image)
-        y = 0
+
+        # Cut the corners for rounder look.
+        transparent = (0,0,0,0)
+        def mirror_h(coords):
+            return (image.width - coords[0], coords[1], image.width - coords[2], coords[3])
+        def mirror_v(coords):
+            return (coords[0], image.height - coords[1], coords[2], image.height - coords[3])
+        coords = (0.1 * unit, -0.1 * unit, -0.1 * unit, 0.1 * unit)
+        draw.line(coords, fill=transparent, width=int(0.15 * unit))
+        draw.line(mirror_h(coords), fill=transparent, width=int(0.15 * unit))
+        draw.line(mirror_v(coords), fill=transparent, width=int(0.15 * unit))
+        draw.line(mirror_h(mirror_v(coords)), fill=transparent, width=int(0.15 * unit))
+
+        y = padding
         for row in state_json["rows"]:
-            x = 0
+            x = padding
             for stone in row["stones"]:
                 horizontal = stone.get("h", "")
                 vertical = stone.get("v", "")
@@ -471,9 +491,8 @@ class TsumegoImageView(View):
                     circle(draw, x, y, fill=color)
                 x += 1
             y += 1
-        response = HttpResponse(content_type="image/png")
         del draw
-        factor = THUMBNAIL_SIZE / max(image.width, image.height)
-        image.thumbnail((factor * image.width, factor * image.height))
+        response = HttpResponse(content_type="image/png")
+        image.thumbnail(get_thubnail_dimensions(state))
         image.save(response, "PNG")
         return response
