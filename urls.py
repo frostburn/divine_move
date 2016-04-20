@@ -29,7 +29,6 @@ urlpatterns = [
     url(r'^api/go9x9/add_sgf/$', views.go9x9_add_sgf, name='go9x9_sgf_api'),
     url(r'^faq/go9x9/$', views.Go9x9FAQView.as_view(), name='go9x9_faq'),
     url(r'^tsumego/$', tsumego_views.TsumegoIndexView.as_view(), name='tsumego_index'),
-    url(r'^tsumego/reset/$', tsumego_views.TsumegoResetView.as_view(), name='tsumego_reset'),
     url(r'^tsumego/problems/$', tsumego_views.TsumegoProblemIndexView.as_view(), name='tsumego_problems'),
     url(r'^tsumego/faq/$', tsumego_views.TsumegoFAQView.as_view(), name='tsumego_faq'),
     url(r'^tsumego/(?P<name>[a-zA-Z0-9_-]+)/$', tsumego_views.TsumegoEmptyView.as_view(), name='tsumego_empty'),

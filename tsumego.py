@@ -7,7 +7,9 @@ from django.conf import settings
 import pexpect
 
 from go_board import ALPHA, popcount
+from socket_client import *
 from utils import *
+
 
 QUERY_TIMEOUT = 120
 
@@ -130,6 +132,7 @@ class TsumegoError(Exception):
 
 class State(object):
     num_code_chars = 63
+    fmt = "QQQQQQiii"
 
     def __init__(
             self,
@@ -736,8 +739,28 @@ class State(object):
             self.white_to_play = not self.white_to_play
         return code
 
+    def pack(self):
+        return struct.pack(
+            self.fmt,
+            self.playing_area,
+            self.player,
+            self.opponent,
+            self.ko,
+            self.target,
+            self.immortal,
+            self.passes,
+            self.ko_threats,
+            self.white_to_play
+        )
+
+    @classmethod
+    def unpack(cls, data):
+        return cls(*struct.unpack(cls.fmt, data))
+
 
 class NodeValue(object):
+    fmt = "bbBB"
+
     def __init__(self, low, high, low_distance, high_distance):
         self.low = low
         self.high = high
@@ -788,41 +811,54 @@ class NodeValue(object):
             "high_distance": self.high_distance,
         }
 
+    def pack(self):
+        return struct.pack(
+            self.fmt,
+            self.low,
+            self.high,
+            self.low_distance,
+            self.high_distance,
+        )
+
+    @classmethod
+    def unpack(cls, data):
+        return cls(*struct.unpack(cls.fmt, data))
+
 
 _QUERY = None
-BASE_STATES = {"design": State(rectangle(9, 7))}
-BASE_STATES["design"].set_layers(1)
 
+BASE_STATES = None
 
-def reset_query():
-    global _QUERY
-    _QUERY = None
-    return "DB reset"
+SOLUTION_FOUND = 0
+ERROR_BAD_STATE = -101
+ERROR_SOLUTION_NOT_FOUND = -102
+
+ACTION_LIST_SOLUTIONS = 1
+ACTION_QUERY_STATE = 2
 
 
 def init_query():
-    global _QUERY, BASE_STATES
-    if _QUERY is None:
-        os.chdir(settings.TSUMEGO_QUERY_PATH)
-        filenames = [name + "_japanese.dat" for name in settings.TSUMEGO_NAMES]
-        _QUERY = pexpect.spawn("./query " + " ".join(filenames), echo=False, timeout=QUERY_TIMEOUT)
-        for name in settings.TSUMEGO_NAMES:
-            _QUERY.expect(" ".join(["-?\d+"] * 9))
-            BASE_STATES[name] = State.load(_QUERY.after)
-            _QUERY.expect("\d")
-            BASE_STATES[name].set_layers(int(_QUERY.after))
-            if settings.LOCAL_DEBUG:
-                print BASE_STATES[name].render()
-        _QUERY.expect("Solutions loaded.")
-        if settings.LOCAL_DEBUG:
-            print "Solutions loaded"
+    global BASE_STATES
+    if BASE_STATES is not None:
+        return BASE_STATES
+    BASE_STATES = {"design": State(rectangle(9, 7))}
+    BASE_STATES["design"].set_layers(1)
+    with Socket() as s:
+        send_int(s, ACTION_LIST_SOLUTIONS)
+        num_solutions = receive_int(s)
+        for i in range(num_solutions):
+            base_state = State.unpack(receive(s, State.fmt))
+            base_state.set_layers(receive_int(s))
+            name = receive_str(s)
+            if name.endswith(".dat"):
+                name = name[:-len(".dat")]
+            if name.endswith("_japanese"):
+                name = name[:-len("_japanese")]
+            BASE_STATES[name] = base_state
     return BASE_STATES
 
 
 def query(state, reverse_target=False):
-    os.chdir(settings.TSUMEGO_QUERY_PATH)
-    if _QUERY is None:
-        raise ValueError("Call init_query first")
     player_dead, opponent_dead = state.fix_targets()
     if player_dead and opponent_dead:
         raise ValueError("Inconsistent target kill")
@@ -835,20 +871,33 @@ def query(state, reverse_target=False):
             return NodeValue(TARGET_SCORE, TARGET_SCORE, 0, 0), {}
         else:
             return NodeValue(-TARGET_SCORE, -TARGET_SCORE, 0, 0), {}
-    _QUERY.sendline(state.dump())
-    _QUERY.expect("-?\d+ -?\d+ \d+ \d+")
-    out = map(int, _QUERY.after.split(" "))
-    v = NodeValue(*out)
-    _QUERY.expect("\d+")
-    num_children = int(_QUERY.after)
-    children = {}
-    for i in range(num_children):
-        _QUERY.expect("\d+ -?\d+ -?\d+ \d+ \d+")
-        out = map(int, _QUERY.after.split(" "))
-        children[out[0]] = NodeValue(*out[1:])
-    if not v.valid:
-        raise TsumegoError(v.error)
-    return v, children
+
+    with Socket() as s:
+        send_int(s, ACTION_QUERY_STATE)
+        s.send(state.pack())
+        return_code = receive_int(s)
+        if return_code == SOLUTION_FOUND:
+            v = NodeValue.unpack(receive(s, NodeValue.fmt))
+            num_children = receive_int(s)
+            children = {}
+            for i in range(num_children):
+                move = receive_int(s, fmt="Q")
+                child_v = NodeValue.unpack(receive(s, NodeValue.fmt))
+                children[move] = child_v
+            return v, children
+        elif return_code == ERROR_BAD_STATE:
+            layer_valid = receive_int(s)
+            key_valid = receive_int(s)
+            if not layer_valid:
+                raise TsumegoError("Invalid layer")
+            if not key_valid:
+                raise TsumegoError("Invalid key")
+            else:
+                raise TsumegoError("Invalid passes")
+        elif return_code == ERROR_SOLUTION_NOT_FOUND:
+            raise TsumegoError("Solution not found")
+
+    raise TsumegoError("Unknown error")
 
 
 def get_coords():
@@ -938,6 +987,8 @@ def get_achieved_goal(state, value=None):
 
 def make_book_move(state, low=False):
     value, children = query(state)
+    if not state.active:
+        return value
     random.shuffle(state.moves)
     for move in state.moves:
         if move not in children:
@@ -951,6 +1002,7 @@ def make_book_move(state, low=False):
             if (low_child if low else high_child):
                 state.make_move(move)
                 return child_value
+    raise TsumegoError("No book move found")
 
 
 def demo(tsumego_name="4x4", ko_threats=0):

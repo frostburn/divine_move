@@ -91,11 +91,6 @@ class TsumegoFAQView(TemplateView):
     template_name = "tsumego_faq.html"
 
 
-class TsumegoResetView(View):
-    def get(self, request):
-        return HttpResponse(reset_query())
-
-
 class TsumegoIndexView(TemplateView):
     template_name = "tsumego_index.html"
 
