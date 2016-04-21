@@ -65,6 +65,8 @@ def get_state_json(state, name, problem_mode=False):
     if problem is None:
         state_json["problem_name"] = None
         state_json["problem_collections"] = []
+        if problem_mode:
+            return None
     else:
         state_json["problem_name"] = problem.name
         state_json["problem_collections"] = [collection.slug for collection in problem.collections.all()]
@@ -153,6 +155,11 @@ class TsumegoView(TemplateView):
         context["problem_options"] = json.dumps(TsumegoCollection.all_to_json())
         context["problem_mode"] = json.dumps(self.problem_mode)
         state_json = get_state_json(state, kwargs["name"], self.problem_mode)
+        if state_json is None:
+            if self.problem_mode:
+                raise Http404("Problem not found")
+            else:
+                raise Http404("Tsumego not found")
         context["state"] = json.dumps(state_json)
         context["development"] = settings.DEBUG
         context["debug"] = json.dumps(bool(settings.DEBUG))
