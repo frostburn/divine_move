@@ -20,6 +20,7 @@
         window.state = {{ state|safe }};
         window.problem_options = {{ problem_options|safe }};
         window.problem_mode = {{ problem_mode|safe }};
+        window.debug = {{ debug|safe }};
         window.json_url = "{% url 'tsumego_json' %}";
     </script>
     {% if development %}

@@ -489,7 +489,9 @@ var Game = React.createClass({
     doFetch: function(params, dump, captures) {
         var active = dump ? true : this.state.data.active;
         if (params.length && !active) {
-            console.log("It's over man.");
+            if (this.props.debug) {
+                console.log("Not fetching", params, active);
+            }
             return;
         }
         if (this.block_fetch) {
@@ -525,7 +527,9 @@ var Game = React.createClass({
         .then(handle_error)
         .then(
             function(data) {
-                console.log(data);
+                if (that.props.debug) {
+                    console.log(data);
+                }
                 that.setState({"data": data});
                 set_problem_form_state(data.problem_name, data.problem_collections, data.dump);
                 if (data.problem_failed || data.problem_solved) {
@@ -536,7 +540,10 @@ var Game = React.createClass({
         )
         .catch(
             function(error) {
-                console.log("Request failed", error);
+                that.setState({
+                    "user_status": "Request failed",
+                    "problem_status": String(error),
+                });
             }
         );
     },
@@ -566,7 +573,10 @@ var Game = React.createClass({
         )
         .catch(
             function(error) {
-                console.log("Request failed", error);
+                that.setState({
+                    "user_status": "Request failed",
+                    "problem_status": String(error),
+                });
             }
         );
     },
@@ -668,7 +678,10 @@ var Game = React.createClass({
         )
         .catch(
             function(error) {
-                console.log("Request failed", error);
+                that.setState({
+                    "user_status": "Request failed",
+                    "problem_status": String(error),
+                });
             }
         );
     },
@@ -782,6 +795,7 @@ ReactDOM.render(
         data={window.state}
         problem_options={window.problem_options}
         problem_mode={window.problem_mode}
+        debug={window.debug}
     />,
     document.getElementById("container")
 );
