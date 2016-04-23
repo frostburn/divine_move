@@ -158,8 +158,50 @@ var CoordRow = React.createClass({
 });
 
 var Board = React.createClass({
+    _getScale: function() {
+        // Manually calculating CSS properties that depend on tsumego.less constants.
+        // Obviously horrible.
+        var padding = 5;
+        var border = 2;
+        var offset = 2 * (padding + border);
+        var column_padding = 15;
+        var stone_width = 42;
+        var default_width = stone_width * (1 + this.props.visual_width) + offset;
+        var available_width = window.innerWidth - 2 * column_padding;
+        console.log(default_width, available_width);
+        return available_width / default_width;
+        // This would be nice, but not available at mounting time.
+        // var $this = $(".board");
+        // return $this.parent().width() / default_width;
+    },
+    getInitialState: function() {
+        return {scale: this._getScale()};
+    },
+    handleResize: function(e) {
+        this.setState({scale: this._getScale()});
+    },
+    componentDidMount: function() {
+        window.addEventListener('resize', this.handleResize);
+    },
+    componentWillUnmount: function() {
+        window.removeEventListener('resize', this.handleResize);
+    },
     render: function() {
         var {data, width, height, ...rest} = this.props;
+        var style = {};
+        var scale = this.state.scale;
+        if (scale < 1) {
+            var iscale_t = (100.0 / scale) + "%";
+            var left_margin = (-50 * (1.0 / scale - 1.0)) + "%";  // I don't even...
+            var scale_t = "scale(" + scale + ")";
+            style = {
+                "msTransform": scale_t,
+                "WebkitTransform": scale_t,
+                "transform": scale_t,
+                "width": iscale_t,
+                "marginLeft": left_margin,  // I have no clue why this is needed.
+            };
+        }
         var rows = data.map((row) => (
             <Row
                 data={row.stones}
@@ -170,7 +212,7 @@ var Board = React.createClass({
             />
         ));
         return (
-            <div className="board">
+            <div className="board" style={style}>
                 {rows}
                 <CoordRow width={width} />
             </div>
@@ -761,7 +803,7 @@ var Game = React.createClass({
         }
         return (
             <div className="game row">
-                <div className="col-md-6">
+                <div className="col-md-6 game-column">
                     <h3>{title}</h3>
                     <Board
                         data={this.state.data.rows}
@@ -770,6 +812,7 @@ var Game = React.createClass({
                         white_to_play={this.state.data.white_to_play}
                         width={this.props.data.width}
                         height={this.props.data.height}
+                        visual_width={this.props.data.visual_width}
                     />
                     <StatusRow status={this.state.data.status} />
                     <PassButton onMove={this.handleMove} />
@@ -783,14 +826,14 @@ var Game = React.createClass({
                         hidden={this.state.problem_mode}  // Hidden instead of removed due to mounting issues.
                     />
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-3 game-column">
                     {edit_controls}
                     <StatsPanel data={this.state.data} problem_mode={this.state.problem_mode} />
                     {skip_button}
                     {reset_button}
                     <Button className="next-problem" label="Next problem" onClick={this.handleNext} />
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-3 game-column">
                     <p>{this.state.user_status}</p>
                     <p>{this.state.problem_status}</p>
                     <ChildResults results={child_results} height={this.props.data.height} />

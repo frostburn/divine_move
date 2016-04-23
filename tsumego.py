@@ -569,6 +569,7 @@ class State(object):
         color_to_play = ("white" if self.white_to_play else "black")
         o_color = ("black" if self.white_to_play else "white")
         rows = []
+        visual_width = self.width;
         for j in range(len(self.row_widths)):
             row = []
             for i in range(self.row_widths[j]):
@@ -644,6 +645,7 @@ class State(object):
             m = 1 << (i + j * V_SHIFT)
             # Should be east(self.immortal) but that doesn't work outside the board.
             if m & (self.immortal << H_SHIFT):
+                visual_width = self.width + 0.5;
                 row.append({
                     "c": "h",
                     "x": "%d_%d" % (i, j),
@@ -701,6 +703,7 @@ class State(object):
             "rows": rows,
             "width": self.width,
             "height": self.height,
+            "visual_width": visual_width,
             "dump": self.dump(),
         }
 

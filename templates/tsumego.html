@@ -5,7 +5,7 @@
     {% if development %}
         <link rel="stylesheet/less" type="text/css" href="{% static 'less/tsumego.less' %}">
     {% else %}
-        <link rel="stylesheet" type="text/css" href="{% static 'compiled/tsumego.css' %}?v=1">
+        <link rel="stylesheet" type="text/css" href="{% static 'compiled/tsumego.css' %}?v=3">
     {% endif %}
 {% endblock %}
 {% block extra_js %}
@@ -26,6 +26,6 @@
     {% if development %}
         <script type="text/babel" src="{% static 'jsx/tsumego.jsx' %}"></script>
     {% else %}
-        <script src="{% static 'compiled/tsumego.min.js' %}?v=2"></script>
+        <script src="{% static 'compiled/tsumego.min.js' %}?v=3"></script>
     {% endif %}
 {% endblock %}
