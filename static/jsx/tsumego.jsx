@@ -761,7 +761,7 @@ var Game = React.createClass({
         }
         return (
             <div className="game row">
-                <div className="col-md-5">
+                <div className="col-md-6">
                     <h3>{title}</h3>
                     <Board
                         data={this.state.data.rows}
@@ -790,7 +790,7 @@ var Game = React.createClass({
                     {reset_button}
                     <Button className="next-problem" label="Next problem" onClick={this.handleNext} />
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-3">
                     <p>{this.state.user_status}</p>
                     <p>{this.state.problem_status}</p>
                     <ChildResults results={child_results} height={this.props.data.height} />
