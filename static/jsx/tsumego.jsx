@@ -307,7 +307,7 @@ var ChildResults = React.createClass({
         var results = this.props.results.map(function(row) {
             var coords = row[0];
             if (coords.length) {
-                coords = ALPHA[coords[0]] + (that.props.height - coords[1]);
+                coords = ALPHA[coords[0]] + (coords[1] + 1);
             }
             else {
                 coords = "pass";
