@@ -2,7 +2,7 @@ var NBSP = "\u00a0";
 
 var FETCH_TIMEOUT = 30000;  // Thirty seconds.
 
-var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J"];
+var ALPHA = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K"];
 
 var Cell = React.createClass({
     getInitialState: function() {
@@ -41,10 +41,6 @@ var Cell = React.createClass({
             case "e":
                 status = "escaped";
                 break;
-        }
-        if (status == "immortal") {
-            vertical = "ns";
-            horizontal = "ew";
         }
         if (this.props.vertical) {
             children.push(<span className={"vertical " + vertical} key="vertical"/>);
@@ -96,8 +92,15 @@ var Cell = React.createClass({
         if (this.props.last) {
             children.push(<span className="last-move" key="last" />);
         }
+        class_name = "cell";
+        if (this.props.color === "h") {
+            class_name += " h-half";
+        }
+        else if (this.props.color === "v") {
+            class_name += " v-half";
+        }
         return (
-            <div className="cell" onClick={this.handleClick} onMouseOut={this.handleMouseOut}>
+            <div className={class_name} onClick={this.handleClick} onMouseOut={this.handleMouseOut}>
                 {children}
             </div>
         );
@@ -123,10 +126,17 @@ var Row = React.createClass({
                 {...rest}
             />
         ));
-        cells.unshift(<div className="cell alpha number" key="label">{this.props.label}</div>);
+        var class_name = "stone-row";
+        if (this.props.outside) {
+            cells.unshift(<div className="cell v-half" key="label">{NBSP}</div>);
+            class_name += " v-half";
+        }
+        else {
+            cells.unshift(<div className="cell alpha number" key="label">{this.props.label}</div>);
+        }
 
         return (
-            <div className="stone-row">
+            <div className={class_name}>
                 {cells}
             </div>
         );
@@ -153,8 +163,9 @@ var Board = React.createClass({
         var rows = data.map((row) => (
             <Row
                 data={row.stones}
-                label={this.props.height - row.index}
+                label={row.index + 1}
                 key={row.index}
+                outside={row.outside}
                 {...rest}
             />
         ));

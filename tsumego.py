@@ -597,9 +597,9 @@ class State(object):
                 if m & pa:
                     if m & east(pa):
                         horizontal += "e"
-                    if m & west(pa):
+                    if m & west(pa) or (m & self.immortal and i == self.row_widths[j] - 1):
                         horizontal += "w"
-                    if m & north(pa):
+                    if m & north(pa) or (m & self.immortal and j == len(self.row_widths) - 1):
                         vertical += "n"
                     if m & south(pa):
                         vertical += "s"
@@ -638,9 +638,39 @@ class State(object):
                             del stone[key]
 
                 row.append(stone)
+
+            # A visual trick to make it seem like immortal stones have liberties.
+            i = self.row_widths[j]
+            m = 1 << (i + j * V_SHIFT)
+            # Should be east(self.immortal) but that doesn't work outside the board.
+            if m & (self.immortal << H_SHIFT):
+                row.append({
+                    "c": "h",
+                    "x": "%d_%d" % (i, j),
+                    "h": "e",
+                })
+
             rows.append({
                 "index": j,
                 "stones": row,
+            })
+
+        j = len(self.row_widths)
+        liberty_row = []
+        for i in range(self.row_widths[-1]):
+            m = 1 << (i + j * V_SHIFT)
+            stone = {
+                "c": "v",
+                "x": "%d_%d" % (i, j),
+            }
+            if m & south(self.immortal):
+                stone["v"] = "s"
+            liberty_row.append(stone)
+        if any("v" in stone for stone in liberty_row):
+            rows.append({
+                "index": j,
+                "outside": True,
+                "stones": liberty_row,
             })
 
         status = ""

@@ -172,6 +172,19 @@
                 border-style: solid;
             }
         }
+        .h-half {
+            width: @cell_size * 0.5;
+            .horizontal {
+                background: linear-gradient(to right, @line_color, rgba(0, 0, 0, 0));
+            }
+        }
+        .v-half {
+            height: @cell_size * 0.5;
+            .vertical {
+                background: linear-gradient(to bottom, @line_color, rgba(0, 0, 0, 0));
+            }
+        }
+
         .alpha {
             text-align: center;
             color: @font_color;
@@ -180,5 +193,8 @@
         .number {
             top: -3px;
         }
+    }
+    .v-half {
+        height: @cell_size * 0.5;
     }
 }
