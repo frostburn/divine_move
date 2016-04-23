@@ -206,10 +206,16 @@ class TsumegoProblemIndexView(TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        name = request.POST["name"]
+        name = request.POST["name"].strip()
+        if not name:
+            return self.get(request, *args, **kwargs)
         slug = slugify(name)
-        collection = TsumegoCollection.objects.create(name=name, slug=slug)
-        collection.save()
+        for ext in [""] + map(str, range(9)):
+            if TsumegoCollection.objects.filter(slug=(slug + ext)):
+                continue
+            else:
+                collection = TsumegoCollection.objects.create(name=name, slug=(slug + ext))
+                break
         return self.get(request, *args, **kwargs)
 
 
@@ -330,6 +336,7 @@ class TsumegoJSONView(View):
         if not name:
             problem.archived = True
             if created:
+                problem.delete()
                 return {"error": "Please enter a name."}
         else:
             problem.name = name
