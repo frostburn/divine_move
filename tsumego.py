@@ -952,16 +952,20 @@ def get_coords():
         return x, y
 
 
-def format_value(state, value, low=True):
+def format_value(state, value, low=True, succint=False):
     v = value.low if low else value.high
     result = -v if state.white_to_play else v
     captures_by_black, captures_by_white = state.get_prisoners()
     result += captures_by_black - captures_by_white
+    if succint:
+        if result < DIES:
+            return "W+R"
+        elif result > KILLS:
+            return "B+R"
     if result < 0:
-        result = "W+" + str(-result)
+        return "W+" + str(-result)
     else:
-        result = "B+" + str(result)
-    return result
+        return "B+" + str(result)
 
 
 def get_result(state):

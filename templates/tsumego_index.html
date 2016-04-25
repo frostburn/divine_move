@@ -1,5 +1,9 @@
 {% extends "base.html" %}
+{% load staticfiles %}
 {% block title %}Tsumego templates{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/tsumego.css' %}">
+{% endblock %}
 {% block content %}
     <div class="row">
         <div class="col-md-12">

@@ -1,14 +1,33 @@
 {% extends "base.html" %}
+{% load staticfiles %}
 {% block title %}Go problems{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/tsumego.css' %}">
+{% endblock %}
 {% block content %}
     <div class="row">
         <div class="col-md-12">
             <h1>Problems</h1>
+            <ul>
             {% for collection in collections %}
-                <h2>{{ collection.name }}</h2>
-                <ul>
+            <li>
+                <a
+                    class="collection-header collapsed"
+                    data-toggle="collapse"
+                    href="#collection_content_{{ forloop.counter }}"
+                    aria-expanded="false"
+                    aria-controls="collection_content_{{ forloop.counter }}"
+                >
+                    <span class="h3">{{ collection.name }}</span>
+                    <span class="h4">
+                        <span class="glyphicon glyphicon-menu-down collection-open"></span>
+                        <span class="glyphicon glyphicon-menu-up collection-close"></span>
+                    </span>
+                </a>
+                <br>
+                <ul class="collapse" id="collection_content_{{ forloop.counter }}">
                 {% for problem in collection.problems %}
-                    <li class="tsumego-item">
+                    <li class="tsumego-item{% if problem.tried %} tried{% endif %}">
                         <a href="{{ problem.url }}">
                             <img
                                 src="{% url 'tsumego_image' problem.state.playing_area problem.state.black problem.state.white %}"
@@ -17,10 +36,12 @@
                             >
                             {{ problem.name }}
                         </a>
+                        {{ problem.result }}
                         <small>({{problem.elo|floatformat:1}})</small>
                     </li>
                 {% endfor %}
                 </ul>
+            </li>
             {% endfor %}
             <form method="post">
                 {% csrf_token %}

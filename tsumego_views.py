@@ -196,6 +196,8 @@ class TsumegoProblemIndexView(TemplateView):
                     "elo": problem.elo,
                     "state": problem.state,
                     "thumbnail": get_thubnail_dimensions(problem.state),
+                    "tried": problem.has_been_tried(self.request),
+                    "result": format_value(problem.state, problem.value, succint=True),
                     "url": url,
                 })
             collections.append({
@@ -505,4 +507,6 @@ class TsumegoImageView(View):
         response = HttpResponse(content_type="image/png")
         image.thumbnail(get_thubnail_dimensions(state))
         image.save(response, "PNG")
+        if not settings.DEBUG:
+            response['Cache-Control'] = 'max-age=%d, public' % (24 * 60 * 60,)  # 1 day
         return response

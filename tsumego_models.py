@@ -3,8 +3,10 @@ import re
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
-from tsumego import State
+from tsumego import State, NodeValue, query
 
 
 def name_key(obj):
@@ -31,6 +33,10 @@ class TsumegoProblem(models.Model):
     collections = models.ManyToManyField('TsumegoCollection', related_name='problems')
     state_dump = models.CharField(max_length=256)
     archived = models.BooleanField(default=False)
+    value_low = models.IntegerField(default=777)
+    value_high = models.IntegerField(default=777)
+    value_low_distance = models.IntegerField(default=777)
+    value_high_distance = models.IntegerField(default=777)
 
     _state_obj = None
 
@@ -40,8 +46,34 @@ class TsumegoProblem(models.Model):
             self._state_obj = State.load(self.state_dump)
         return self._state_obj
 
+    def _get_value(self):
+        return NodeValue(self.value_low, self.value_high, self.value_low_distance, self.value_high_distance)
+
+    def _set_value(self, value):
+        self.value_low = value.low
+        self.value_high = value.high
+        self.value_low_distance = value.low_distance
+        self.value_high_distance = value.high_distance
+
+    value = property(_get_value, _set_value)
+
+    def has_been_tried(self, request):
+        if request.user.is_anonymous():
+            return self.pk in request.session.get("problem_ids", [])
+        else:
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            return self.solvers.filter(pk=profile.pk).exists()
+        return False
+
     def __unicode__(self):
         return "%s: %.2f" % (self.name, self.elo)
+
+
+@receiver(pre_save, sender=TsumegoProblem)
+def create_tsumego_problem(sender, instance, **kwargs):
+    """Cache value whenever a problem is created."""
+    if not instance.pk:
+        instance.value, _ = query(instance.state)
 
 
 class TsumegoCollection(models.Model):
