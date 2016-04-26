@@ -40,3 +40,8 @@ body {
 .container.text-muted {
   margin: 20px 0;
 }
+
+.external-link {
+    margin-left: 0.1em;
+    font-size: 0.9em;
+}

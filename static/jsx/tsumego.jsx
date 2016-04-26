@@ -168,7 +168,6 @@ var Board = React.createClass({
         var stone_width = 42;
         var default_width = stone_width * (1 + this.props.visual_width) + offset;
         var available_width = window.innerWidth - 2 * column_padding;
-        console.log(default_width, available_width);
         return available_width / default_width;
         // This would be nice, but not available at mounting time.
         // var $this = $(".board");
