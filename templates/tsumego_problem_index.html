@@ -30,7 +30,7 @@
                     <li class="tsumego-item{% if problem.tried %} tried{% endif %}">
                         <a href="{{ problem.url }}">
                             <img
-                                src="{% url 'tsumego_image' problem.state.playing_area problem.state.black problem.state.white %}"
+                                data-src="{% url 'tsumego_image' problem.state.playing_area problem.state.black problem.state.white %}"
                                 width="{{ problem.thumbnail.0 }}"
                                 height="{{ problem.thumbnail.1 }}"
                             >
@@ -53,4 +53,7 @@
             </form>
         </div>
     </div>
+{% endblock %}
+{% block extra_js %}
+    <script type="text/javascript" src="{% static 'js/tsumego.js' %}"></script>
 {% endblock %}

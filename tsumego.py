@@ -876,18 +876,22 @@ def init_query():
         return BASE_STATES
     BASE_STATES = {"design": State(rectangle(9, 7))}
     BASE_STATES["design"].set_layers(1)
-    with Socket() as s:
-        send_int(s, ACTION_LIST_SOLUTIONS)
-        num_solutions = receive_int(s)
-        for i in range(num_solutions):
-            base_state = State.unpack(receive(s, State.fmt))
-            base_state.set_layers(receive_int(s))
-            name = receive_str(s)
-            if name.endswith(".dat"):
-                name = name[:-len(".dat")]
-            if name.endswith("_japanese"):
-                name = name[:-len("_japanese")]
-            BASE_STATES[name] = base_state
+    try:
+        with Socket() as s:
+            send_int(s, ACTION_LIST_SOLUTIONS)
+            num_solutions = receive_int(s)
+            for i in range(num_solutions):
+                base_state = State.unpack(receive(s, State.fmt))
+                base_state.set_layers(receive_int(s))
+                name = receive_str(s)
+                if name.endswith(".dat"):
+                    name = name[:-len(".dat")]
+                if name.endswith("_japanese"):
+                    name = name[:-len("_japanese")]
+                BASE_STATES[name] = base_state
+    except:
+        if not settings.DEBUG:
+            raise
     return BASE_STATES
 
 

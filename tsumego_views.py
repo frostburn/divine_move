@@ -436,9 +436,20 @@ def get_thubnail_dimensions(state):
     factor = THUMBNAIL_SIZE / float(max(state.width, state.height))
     return (int(factor * state.width), int(factor * state.height))
 
+
+_IMAGE_RESPONSE_CACHE = {}
+
+
 class TsumegoImageView(View):
     def get(self, request, *args, **kwargs):
-        state = State(int(kwargs["playing_area"]))
+        playing_area = int(kwargs["playing_area"])
+        black = int(kwargs["black"])
+        white = int(kwargs["white"])
+        key = (playing_area, black, white)
+        if key in _IMAGE_RESPONSE_CACHE:
+            return _IMAGE_RESPONSE_CACHE[key]
+
+        state = State(playing_area)
         state.black = int(kwargs["black"])
         state.white = int(kwargs["white"])
         state.max_ko_threats = 0
@@ -504,9 +515,13 @@ class TsumegoImageView(View):
                 x += 1
             y += 1
         del draw
-        response = HttpResponse(content_type="image/png")
         image.thumbnail(get_thubnail_dimensions(state))
+
+        response = HttpResponse(content_type="image/png")
         image.save(response, "PNG")
         if not settings.DEBUG:
             response['Cache-Control'] = 'max-age=%d, public' % (24 * 60 * 60,)  # 1 day
+
+        _IMAGE_RESPONSE_CACHE[key] = response
+
         return response
