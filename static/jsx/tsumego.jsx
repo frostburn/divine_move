@@ -704,9 +704,11 @@ var Game = React.createClass({
         });
         this.doFetch("");  // Updates the title.
     },
-    handleNext: function() {
+    handleNext: function(action) {
         var payload = {
-            "action": "next_problem",
+            "action": action,
+            "problem_set": this.props.problem_set,
+            "problem_id": this.props.data.problem_id,
         };
         var that = this;
         fetch(window.json_url, {
@@ -721,8 +723,12 @@ var Game = React.createClass({
                     window.location.href = data.href;
                 }
                 else {
+                    var msg = "You have tried all the available problems."
+                    if (action === "next_problem_in_set") {
+                        msg = "Problem not found."
+                    }
                     that.setState({
-                        "user_status": "You have tried all the available problems.",
+                        "user_status": msg,
                         "problem_status": "",
                     });
                 }
@@ -782,6 +788,7 @@ var Game = React.createClass({
         var edit_controls = [];
         var reset_button = null;
         var skip_button = null;
+        var next_problem_in_set_button = null;
         if (this.state.problem_mode) {
             skip_button = <Button key="skip" label="Skip to edit mode" onClick={this.handleSkip} />
         }
@@ -799,6 +806,9 @@ var Game = React.createClass({
                 <RadioGroup key="mode" choices={mode_choices} selected={this.state.mode} onChange={this.handleModeChange} />,
             ];
             reset_button = <Button key="reset" label="Reset" onClick={this.handleReset} />
+        }
+        if (this.props.problem_set !== null) {
+            next_problem_in_set_button = <Button className="next-problem" label="Next problem in set" onClick={this.handleNext.bind(this, "next_problem_in_set")} />
         }
         return (
             <div className="game row">
@@ -830,7 +840,8 @@ var Game = React.createClass({
                     <StatsPanel data={this.state.data} problem_mode={this.state.problem_mode} />
                     {skip_button}
                     {reset_button}
-                    <Button className="next-problem" label="Next problem" onClick={this.handleNext} />
+                    <Button className="next-problem" label="Next problem" onClick={this.handleNext.bind(this, "next_problem")} />
+                    {next_problem_in_set_button}
                 </div>
                 <div className="col-md-3 game-column">
                     <p>{this.state.user_status}</p>
@@ -848,6 +859,7 @@ ReactDOM.render(
         data={window.state}
         problem_options={window.problem_options}
         problem_mode={window.problem_mode}
+        problem_set={window.problem_set}
         debug={window.debug}
     />,
     document.getElementById("container")

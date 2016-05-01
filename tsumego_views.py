@@ -69,6 +69,7 @@ def get_state_json(state, name, problem_mode=False):
             return None
     else:
         state_json["problem_name"] = problem.name
+        state_json["problem_id"] = problem.pk
         state_json["problem_collections"] = [collection.slug for collection in problem.collections.all()]
     return state_json
 
@@ -160,6 +161,10 @@ class TsumegoView(TemplateView):
                 raise Http404("Problem not found")
             else:
                 raise Http404("Tsumego not found")
+        if self.problem_mode:
+            context["problem_set"] = json.dumps(self.request.GET.get("set"))
+        else:
+            context["problem_set"] = json.dumps(None)
         context["state"] = json.dumps(state_json)
         context["development"] = settings.DEBUG
         context["debug"] = json.dumps(bool(settings.DEBUG))
@@ -176,10 +181,16 @@ class TsumegoProblemIndexView(TemplateView):
     def get_context_data(self, *args, **kwargs):
         context = super(TsumegoProblemIndexView, self).get_context_data(*args, **kwargs)
 
+        if self.request.user.is_anonymous():
+            tried_problem_ids = self.request.session.get("problem_ids", [])
+        else:
+            tried_problem_ids = self.request.user.profile.tried_problems.values_list("pk", flat=True)
+
         # Hello! I'm a duck!
         class Uncategorized(object):
             name = "Uncategorized"
             problems = TsumegoProblem.objects.filter(collections=None)
+            slug = ""
 
         collections = []
         tsumego_collections = sorted(TsumegoCollection.objects.all(), key=name_key)
@@ -196,9 +207,9 @@ class TsumegoProblemIndexView(TemplateView):
                     "elo": problem.elo,
                     "state": problem.state,
                     "thumbnail": get_thubnail_dimensions(problem.state),
-                    "tried": problem.has_been_tried(self.request),
+                    "tried": problem.pk in tried_problem_ids,
                     "result": format_value(problem.state, problem.value, succint=True),
-                    "url": url,
+                    "url": "{}?set={}".format(url, collection.slug),
                 })
             collections.append({
                 "name": collection.name,
@@ -407,15 +418,46 @@ class TsumegoJSONView(View):
             "problem_delta": format_delta(problem_delta),
         }
 
-    def _next_problem(self, request):
+    def _next_problem(self, request, data):
         if request.user.is_anonymous():
             problem_ids = request.session.get("problem_ids", [])
         else:
             profile, created = UserProfile.objects.get_or_create(user=request.user)
-            problem_ids = profile.tried_problems.values_list("pk", flat=True)
+            problem_ids = list(profile.tried_problems.values_list("pk", flat=True))
+        # Avoid accidentally mutating session.
+        problem_ids = problem_ids + [data["problem_id"]]
+        # Favors problems most fitting for the users based on ELO difference
+        problems = []
         for problem in TsumegoProblem.objects.exclude(pk__in=problem_ids).order_by("?"):
             url = get_problem_url(problem)
             if url is not None:
+                problems.append((problem.elo, url))
+                if len(problems) > 10:
+                    break
+        if problems:
+            elo = self._get_user_elo(request)
+            url = sorted(problems, key=lambda p: abs(p[0] - elo))[0][1]
+            return {"href": url, "success": True}
+        return {"success": False}
+
+    def _next_problem_in_set(self, request, data):
+        slug = data["problem_set"]
+        problem_id = data["problem_id"]
+        if slug:
+            problems = TsumegoCollection.objects.get(slug=slug).problems
+        else:
+            problems = TsumegoProblem.objects.filter(collections=None)
+        problems = sorted(problems.filter(archived=False), key=name_key)
+        if not problems:
+            return {"success": False}
+        for index, problem in enumerate(problems):
+            if problem.pk == problem_id:
+                break
+        for _ in range(len(problems)):
+            index = (index + 1) % len(problems)
+            url = get_problem_url(problems[index])
+            if url is not None:
+                url = "{}?set={}".format(url, slug)
                 return {"href": url, "success": True}
         return {"success": False}
 
@@ -427,7 +469,9 @@ class TsumegoJSONView(View):
         elif action == "update_elo":
             result = self._update_elo(request, data)
         elif action == "next_problem":
-            result = self._next_problem(request)
+            result = self._next_problem(request, data)
+        elif action == "next_problem_in_set":
+            result = self._next_problem_in_set(request, data)
         else:
             raise ValueError("Invalid action")
         return JsonResponse(result)
