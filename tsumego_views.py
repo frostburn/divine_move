@@ -90,6 +90,41 @@ def get_problem_url(problem):
     return reverse("tsumego_problem", kwargs={"name": name, "code": url_code})
 
 
+def get_user_elo(request):
+    if request.user.is_anonymous():
+        try:
+            return float(request.session.get("elo"))
+        except (ValueError, TypeError):
+            return 1500.0
+    else:
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        return profile.elo
+
+
+def next_problem(request, data=None):
+    if request.user.is_anonymous():
+        problem_ids = request.session.get("problem_ids", [])
+    else:
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        problem_ids = list(profile.tried_problems.values_list("pk", flat=True))
+    if data and "problem_id" in data:
+        # Avoid accidentally mutating session.
+        problem_ids = problem_ids + [data["problem_id"]]
+    # Favors problems most fitting for the users based on ELO difference
+    problems = []
+    for problem in TsumegoProblem.objects.exclude(pk__in=problem_ids).order_by("?"):
+        url = get_problem_url(problem)
+        if url is not None:
+            problems.append((problem.elo, url))
+            if len(problems) > 10:
+                break
+    if problems:
+        elo = get_user_elo(request)
+        url = sorted(problems, key=lambda p: abs(p[0] - elo))[0][1]
+        return {"href": url, "success": True}
+    return {"success": False}
+
+
 class TsumegoFAQView(TemplateView):
     template_name = "tsumego_faq.html"
 
@@ -232,6 +267,17 @@ class TsumegoProblemIndexView(TemplateView):
         return self.get(request, *args, **kwargs)
 
 
+class TsumegoNextProblemView(TemplateView):
+    template_name = "tsumego_no_next_problem.html"
+
+    def get(self, request, *args, **kwargs):
+        result = next_problem(request)
+        print result
+        if not result["success"]:
+            return super(TsumegoNextProblemView, self).get(request, *args, **kwargs)
+        return HttpResponseRedirect(result["href"])
+
+
 class TsumegoJSONView(View):
     def get(self, request, *args, **kwargs):
         init_query()
@@ -362,16 +408,6 @@ class TsumegoJSONView(View):
         msg = "Problem {} successfully.".format(verb)
         return {"success": msg}
 
-    def _get_user_elo(self, request):
-        if request.user.is_anonymous():
-            try:
-                return float(request.session.get("elo"))
-            except (ValueError, TypeError):
-                return 1500.0
-        else:
-            profile, created = UserProfile.objects.get_or_create(user=request.user)
-            return profile.elo
-
     def _set_user_elo(self, request, elo, problem):
         if request.user.is_anonymous():
             request.session["elo"] = elo
@@ -396,7 +432,7 @@ class TsumegoJSONView(View):
         return False
 
     def _update_elo(self, request, data):
-        user_elo = self._get_user_elo(request)
+        user_elo = get_user_elo(request)
         problem = TsumegoProblem.objects.get(state_dump=data["dump"])
         user_delta = 0
         problem_delta = 0
@@ -417,28 +453,6 @@ class TsumegoJSONView(View):
             "problem_elo": one_decimal.format(problem.elo),
             "problem_delta": format_delta(problem_delta),
         }
-
-    def _next_problem(self, request, data):
-        if request.user.is_anonymous():
-            problem_ids = request.session.get("problem_ids", [])
-        else:
-            profile, created = UserProfile.objects.get_or_create(user=request.user)
-            problem_ids = list(profile.tried_problems.values_list("pk", flat=True))
-        # Avoid accidentally mutating session.
-        problem_ids = problem_ids + [data["problem_id"]]
-        # Favors problems most fitting for the users based on ELO difference
-        problems = []
-        for problem in TsumegoProblem.objects.exclude(pk__in=problem_ids).order_by("?"):
-            url = get_problem_url(problem)
-            if url is not None:
-                problems.append((problem.elo, url))
-                if len(problems) > 10:
-                    break
-        if problems:
-            elo = self._get_user_elo(request)
-            url = sorted(problems, key=lambda p: abs(p[0] - elo))[0][1]
-            return {"href": url, "success": True}
-        return {"success": False}
 
     def _next_problem_in_set(self, request, data):
         slug = data["problem_set"]
@@ -469,7 +483,7 @@ class TsumegoJSONView(View):
         elif action == "update_elo":
             result = self._update_elo(request, data)
         elif action == "next_problem":
-            result = self._next_problem(request, data)
+            result = next_problem(request, data)
         elif action == "next_problem_in_set":
             result = self._next_problem_in_set(request, data)
         else:
